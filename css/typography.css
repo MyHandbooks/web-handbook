@@ -1,0 +1,144 @@
+.markdown-body {
+  line-height: 1.7;
+}
+
+.markdown-body h1 {
+  font-size: 2rem;
+  font-weight: 700;
+  margin-bottom: 24px;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 12px;
+}
+
+.markdown-body h2 {
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin: 40px 0 16px;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 6px;
+}
+
+.markdown-body h3 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin: 24px 0 12px;
+}
+
+.markdown-body p {
+  margin-bottom: 16px;
+  color: var(--text-normal);
+}
+
+.markdown-body a {
+  color: var(--accent);
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.markdown-body a:hover {
+  text-decoration: underline;
+}
+
+.markdown-body code {
+  font-family: var(--font-mono);
+  background-color: var(--code-bg);
+  padding: 3px 6px;
+  border-radius: 4px;
+  font-size: 0.85em;
+  color: var(--text-normal);
+}
+
+.markdown-body blockquote {
+  border-left: 4px solid var(--accent);
+  padding: 6px 0 6px 18px;
+  color: var(--text-muted);
+  margin: 24px 0;
+  background-color: var(--bg-secondary);
+  border-radius: 0 6px 6px 0;
+}
+
+.markdown-body ul, .markdown-body ol {
+  margin-bottom: 16px;
+  padding-left: 24px;
+}
+
+.markdown-body li {
+  margin-bottom: 6px;
+}
+
+.markdown-body table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 24px;
+}
+
+.markdown-body th, .markdown-body td {
+  border: 1px solid var(--border);
+  padding: 10px 14px;
+  text-align: left;
+}
+
+.markdown-body th {
+  background-color: var(--bg-secondary);
+  font-weight: 600;
+}
+
+.markdown-body pre {
+  background-color: var(--code-bg);
+  padding: 20px;
+  border-radius: 8px;
+  overflow-x: auto;
+  margin-bottom: 24px;
+  border: 1px solid var(--border);
+}
+
+.markdown-body pre code {
+  background-color: transparent;
+  padding: 0;
+  font-size: 0.85em;
+  color: var(--text-normal);
+}
+
+.error-msg {
+  color: var(--error-text);
+  text-align: center;
+  padding: 40px;
+  font-weight: 500;
+}
+
+/* Prism syntax highlighting tokens */
+.token.comment {
+  color: var(--token-comment);
+}
+
+.token.punctuation {
+  color: var(--token-punctuation);
+}
+
+.token.keyword {
+  color: var(--token-keyword);
+}
+
+.token.operator {
+  color: var(--token-operator);
+}
+
+.token.string {
+  color: var(--token-string);
+}
+
+.token.number {
+  color: var(--token-number);
+}
+
+.token.function {
+  color: var(--token-function);
+}
+
+.token.class-name {
+  color: var(--token-class);
+}
+
+.token.regex {
+  color: var(--token-regex);
+}

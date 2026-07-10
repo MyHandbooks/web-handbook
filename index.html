@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Конспекты по frontend</title>
+  
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" id="prism-theme">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body class="dark-theme">
+
+  <div class="app-layout">
+    
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-header">
+        <h2>Конспекты по frontend</h2>
+        <button id="theme-toggle" class="theme-btn" aria-label="Переключить тему">
+          <app-icon name="sun" class="sun-icon"></app-icon>
+          <app-icon name="moon" class="moon-icon"></app-icon>
+        </button>
+      </div>
+
+      <div class="api-key-panel">
+        <details id="settings-details">
+          <summary>
+            <app-icon name="settings" class="icon-summary"></app-icon>
+            <span>Настройки API</span>
+          </summary>
+          <div class="settings-content">
+            <label for="provider-select">Провайдер ИИ:</label>
+            <select id="provider-select" class="theme-select">
+              <option value="openai">OpenAI</option>
+              <option value="mistral">Mistral AI</option>
+              <option value="gemini">Google Gemini (AI Studio)</option>
+              <option value="openrouter">OpenRouter</option>
+            </select>
+
+            <label for="api-key-input">API Key выбранного ИИ:</label>
+            <input type="password" id="api-key-input" placeholder="Введите ключ...">
+            <button id="save-key-btn" class="action-btn">Подключить</button>
+
+            <div id="model-selector-group" class="model-selector-group hidden">
+              <div class="setting-divider"></div>
+              
+              <label for="api-model-search">Поиск модели:</label>
+              <input type="text" id="api-model-search" class="theme-input" placeholder="Введите название...">
+
+              <div class="checkbox-group">
+                <input type="checkbox" id="free-only-checkbox">
+                <label for="free-only-checkbox">Только бесплатные</label>
+              </div>
+
+              <label for="model-select">Выберите модель:</label>
+              <select id="model-select" class="theme-select">
+                <option value="">Загрузка моделей...</option>
+              </select>
+            </div>
+          </div>
+        </details>
+      </div>
+      
+      <button id="menu-toggle" class="menu-toggle-btn" aria-label="Открыть меню">
+        <span></span>
+        <span></span>
+        <span></span>
+      </button>
+
+      <nav class="navigation">
+        <div id="category-selector" class="category-selector"></div>
+        <ul id="menu" class="menu-list">
+          <li class="loading-placeholder">Загрузка меню...</li>
+        </ul>
+      </nav>
+    </aside>
+
+    <main class="content-container">
+      <div class="content-header">
+        <div class="tabs">
+          <button class="tab-btn active" data-tab="article">
+            <app-icon name="book"></app-icon>
+            <span>Читать статью</span>
+          </button>
+          <button class="tab-btn" data-tab="exam">
+            <app-icon name="academic"></app-icon>
+            <span>AI-помощник</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="tab-contents">
+        <article id="article-content" class="markdown-body tab-content">
+          <div class="loader">Загрузка статьи...</div>
+        </article>
+
+        <section id="exam-content" class="tab-content hidden">
+          <div id="ai-key-warning" class="warning-card">
+            <div class="warning-title">
+              <app-icon name="key" class="icon-warning"></app-icon>
+              <h3>Требуется авторизация</h3>
+            </div>
+            <p>Для активации режима устного экзамена необходимо указать ваш персональный API-ключ в панели настроек слева. Ключ сохраняется локально в памяти вашего браузера.</p>
+          </div>
+
+          <div id="exam-interface" class="exam-workspace hidden">
+            <div class="exam-status-bar">
+              <span id="exam-status">Готов к началу проверки знаний</span>
+              <button id="reset-exam-btn" class="reset-btn">Сбросить прогресс</button>
+            </div>
+
+            <div class="chat-container" id="exam-chat-messages">
+              <div class="message assistant">
+                <p>Привет! Я твой интерактивный экзаменатор. Я прочитаю текущую статью и подготовлю для тебя вопросы для проверки знаний. Когда будешь готов начать, нажми кнопку ниже.</p>
+              </div>
+            </div>
+
+            <div class="interaction-area">
+              
+              <div id="exam-setup-fields" class="settings-content" style="margin-bottom: 15px;">
+                <label for="exam-mode-select">Режим общения:</label>
+                <select id="exam-mode-select" class="theme-select">
+                  <option value="consultation">Консультация (вопросы и разъяснения)</option>
+                  <option value="exam">Экзамен (тестирование знаний)</option>
+                </select>
+
+                <div id="exam-questions-count-group" class="hidden" style="display: flex; flex-direction: column; gap: 8px;">
+                  <label for="exam-questions-select" style="margin-top: 5px; display: block;">Количество вопросов:</label>
+                  <select id="exam-questions-select" class="theme-select">
+                    <option value="3">3 вопроса</option>
+                    <option value="5">5 вопросов</option>
+                    <option value="10">10 вопросов</option>
+                    <option value="auto">Оптимально (выберет нейросеть)</option>
+                  </select>
+                </div>
+              </div>
+
+              <button id="start-exam-btn" class="action-btn start-btn">Начать общение</button>
+              
+              <div id="interactive-inputs" class="input-form hidden">
+                <textarea id="student-answer-input" placeholder="Напишите ваш подробный ответ своими словами... (Ctrl + Enter для отправки)" rows="3"></textarea>
+                <button id="send-answer-btn" class="action-btn send-btn">Отправить ответ</button>
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+    </main>
+
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-javascript.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-typescript.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-json.min.js"></script>
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>

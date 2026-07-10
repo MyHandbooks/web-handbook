@@ -1,0 +1,149 @@
+@import url("css/variables.css");
+@import url("css/reset.css");
+@import url("css/layout.css");
+@import url("css/typography.css");
+@import url("css/ui-kits.css");
+
+/* Скрытие старых элементов */
+.category-selector {
+  display: none !important;
+}
+
+.navigation {
+  padding: 15px 10px !important;
+  overflow-y: auto;
+}
+
+/* УРОВЕНЬ 1: Группы разделов */
+.category-group {
+  margin-bottom: 8px;
+  list-style: none;
+}
+
+.category-title {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--text-normal);
+  cursor: pointer;
+  border-radius: 6px;
+  transition: background-color var(--transition-speed), color var(--transition-speed);
+  text-align: left;
+  letter-spacing: 0.04em;
+  background: none;
+  border: none;
+}
+
+.category-title:hover {
+  background-color: var(--nav-active);
+  color: var(--accent);
+}
+
+.category-title .arrow {
+  font-size: 0.65rem;
+  transition: transform var(--transition-speed);
+  color: var(--text-muted);
+}
+
+.category-group.open .category-title .arrow {
+  transform: rotate(90deg);
+  color: var(--accent);
+}
+
+/* УРОВЕНЬ 2: Списки и группы подразделов */
+.subcategory-list {
+  list-style: none;
+  padding-left: 10px;
+  margin-top: 4px;
+  display: none;
+  flex-direction: column;
+  gap: 4px;
+  border-left: 1px dashed var(--border);
+  margin-left: 18px;
+}
+
+.category-group.open .subcategory-list {
+  display: flex;
+}
+
+.subcategory-group {
+  list-style: none;
+}
+
+.subcategory-title {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 10px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  cursor: pointer;
+  border-radius: 5px;
+  transition: background-color var(--transition-speed), color var(--transition-speed);
+  text-align: left;
+  background: none;
+  border: none;
+}
+
+.subcategory-title:hover {
+  background-color: var(--nav-active);
+  color: var(--text-normal);
+}
+
+.subcategory-title .arrow-sub {
+  font-size: 0.6rem;
+  transition: transform var(--transition-speed);
+  color: var(--text-muted);
+}
+
+.subcategory-group.open .subcategory-title .arrow-sub {
+  transform: rotate(90deg);
+  color: var(--accent);
+}
+
+/* УРОВЕНЬ 3: Списки статей */
+.category-articles {
+  list-style: none;
+  padding-left: 10px;
+  margin-top: 2px;
+  display: none;
+  flex-direction: column;
+  gap: 2px;
+  border-left: 1px dotted var(--border);
+  margin-left: 14px;
+}
+
+.subcategory-group.open .category-articles {
+  display: flex;
+}
+
+.category-articles a {
+  color: var(--text-muted);
+  text-decoration: none;
+  display: block;
+  padding: 6px 12px;
+  border-radius: 4px;
+  font-size: 0.78rem;
+  line-height: 1.35;
+  transition: color var(--transition-speed), background-color var(--transition-speed);
+}
+
+.category-articles a:hover {
+  color: var(--text-normal);
+  background-color: var(--nav-active);
+}
+
+.category-articles a.active {
+  background-color: var(--nav-active);
+  font-weight: 600;
+  border-left: 3px solid var(--accent);
+  border-radius: 0 4px 4px 0;
+  color: var(--accent);
+  padding-left: 9px;
+}
