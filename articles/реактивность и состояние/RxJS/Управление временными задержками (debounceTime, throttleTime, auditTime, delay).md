@@ -22,8 +22,9 @@ status: "completed"
 ### Шаблон 1: Подавление дребезга при вводе в поисковую строку (`debounceTime`)
 *   **Назначение:** Реализация строки живого поиска, которая отправляет HTTP-запрос только тогда, когда пользователь сделал паузу в наборе текста.
 
+#### 1. Файл логики: `debounce-search.ts`
 ```typescript
-import { Component, inject, OnInit, signal, DestroyRef } from '@angular/core';
+import { Component, inject, OnInit, DestroyRef, ChangeDetectionStrategy } from '@angular/core';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
@@ -32,15 +33,15 @@ import { of } from 'rxjs';
 
 @Component({
   selector: 'app-debounce-search',
-  standalone: true,
-  imports: [ReactiveFormsModule],
-  template: `
-    <div class="search-box">
-      <input type="text" [formControl]="searchControl" placeholder="Начните ввод..." />
-    </div>
-  `
+  // standalone: true опускается по умолчанию начиная с v19
+  imports: [
+    ReactiveFormsModule // Импортируем ReactiveFormsModule для связи с searchControl
+  ],
+  templateUrl: './debounce-search.html',
+  styleUrl: './debounce-search.css',
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class DebounceSearchComponent implements OnInit {
+export class DebounceSearch implements OnInit { // Имя класса очищено от суффикса Component
   private readonly http = inject(HttpClient);
   private readonly destroyRef = inject(DestroyRef);
 
@@ -69,23 +70,43 @@ export class DebounceSearchComponent implements OnInit {
 }
 ```
 
+#### 2. Файл разметки: `debounce-search.html`
+```html
+<div class="search-box">
+  <input type="text" [formControl]="searchControl" placeholder="Начните ввод..." class="theme-input" />
+</div>
+```
+
+#### 3. Файл стилей: `debounce-search.css`
+```css
+.search-box {
+  padding: 16px;
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+```
+
 ---
 
 ### Шаблон 2: Блокировка спама кликами по кнопке оплаты (`throttleTime`)
 *   **Назначение:** Защита финансовых транзакций или отправки форм от случайных двойных или множественных кликов пользователя.
 
+#### 1. Файл логики: `throttle-button.ts`
 ```typescript
-import { Component, inject, OnInit, DestroyRef } from '@angular/core';
+import { Component, inject, OnInit, DestroyRef, ChangeDetectionStrategy } from '@angular/core';
 import { Subject } from 'rxjs';
-import { throttleTime, tap } from 'rxjs/operators';
+import { throttleTime } from 'rxjs/operators';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 
 @Component({
   selector: 'app-throttle-button',
-  standalone: true,
-  template: `<button (click)="onPayClick()">Оплатить заказ</button>`
+  imports: [],
+  templateUrl: './throttle-button.html',
+  styleUrl: './throttle-button.css',
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class ThrottleButtonComponent implements OnInit {
+export class ThrottleButton implements OnInit {
   private readonly destroyRef = inject(DestroyRef);
 
   // Горячий поток кликов по кнопке
@@ -111,23 +132,48 @@ export class ThrottleButtonComponent implements OnInit {
 }
 ```
 
+#### 2. Файл разметки: `throttle-button.html`
+```html
+<div class="pay-container">
+  <button (click)="onPayClick()" class="action-btn">Оплатить заказ</button>
+</div>
+```
+
+#### 3. Файл стилей: `throttle-button.css`
+```css
+.pay-container {
+  padding: 12px;
+}
+.action-btn {
+  padding: 10px 20px;
+  background-color: var(--accent);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+}
+```
+
 ---
 
 ### Шаблон 3: Плавное сжатие логов ресайза окна браузера (`auditTime`)
 *   **Назначение:** Оптимизация обработки тяжелых геометрических вычислений при изменении размеров экрана без задержки первого кадра анимации.
 
+#### 1. Файл логики: `resize-spy.ts`
 ```typescript
-import { Component, inject, OnInit, DestroyRef } from '@angular/core';
+import { Component, inject, OnInit, DestroyRef, ChangeDetectionStrategy } from '@angular/core';
 import { fromEvent } from 'rxjs';
 import { auditTime, map } from 'rxjs/operators';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 
 @Component({
   selector: 'app-resize-spy',
-  standalone: true,
-  template: `<p>Монитор размеров окна активен</p>`
+  imports: [],
+  templateUrl: './resize-spy.html',
+  styleUrl: './resize-spy.css',
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class ResizeSpyComponent implements OnInit {
+export class ResizeSpy implements OnInit {
   private readonly destroyRef = inject(DestroyRef);
 
   public ngOnInit(): void {
@@ -151,6 +197,22 @@ export class ResizeSpyComponent implements OnInit {
 }
 ```
 
+#### 2. Файл разметки: `resize-spy.html`
+```html
+<div class="resize-panel">
+  <p>Монитор размеров окна активен</p>
+</div>
+```
+
+#### 3. Файл стилей: `resize-spy.css`
+```css
+.resize-panel {
+  padding: 16px;
+  background-color: var(--bg-secondary);
+  border-radius: 8px;
+}
+```
+
 ---
 
 ## ГЛУБОКОЕ ПОГРУЖЕНИЕ
@@ -159,7 +221,7 @@ export class ResizeSpyComponent implements OnInit {
 Потоки RxJS по умолчанию работают синхронно. Но операторы времени привязаны к асинхронной природе.
 
 Когда вы подключаете оператор `debounceTime(400)`:
-1.  Оператор неявно использует специальный системный сервис — **`AsyncScheduler`** (Планировщик асинхронности).
+1.  Оператор неявно использует специальный системный сервис — **`AsyncScheduler`** (Планировщик асинхровости).
 2.  При получении значения из сети или от инпута `AsyncScheduler` регистрирует макрозадачу таймера на уровне нативного браузерного API `setTimeout(callback, 400)`.
 3.  Если за время работы таймера прилетает новое событие, старый зарегистрированный таймер уничтожается через `clearTimeout()`, а планировщик заводит новый таймер на 400мс.
 4.  Только когда таймер успешно доходит до конца, значение выталкивается из конвейера в поток.
@@ -171,7 +233,7 @@ export class ResizeSpyComponent implements OnInit {
 
 *   **`debounceTime(X)` (Пауза тишины):** Событие испустится только тогда, когда поток полностью "замолчит" на X миллисекунд. Любая активность сбрасывает таймер заново. Подходит для сценариев, где важен окончательный, стабильный результат (живой поиск).
 *   **`throttleTime(X)` (Игнорирование хвоста):** Первое событие пропускается мгновенно. Последующие события в окне X миллисекунд полностью уничтожаются. Подходит для блокировок действий (клики по кнопкам).
-*   **`auditTime(X)` (Сжатие кэша):** Первое событие открывает таймер, но **не испускается сразу**. В течение X миллисекунд поток накапливает значения, перезаписывая старые новыми. По истечении X миллисекунд испускается строго последнее накопленное значение. Подходит для периодической фоновой отправки данных (scroll, mousemove).
+*   **`auditTime(X)` (Сжатие кэша):** Первое событие открывает таймер, но **не испускается сразу**. В течение X миллисекунд поток накопливает значения, перезаписывая старые новыми. По истечении X миллисекунд испускается строго последнее накопленное значение. Подходит для периодической фоновой отправки данных (scroll, mousemove).
 
 ### 3. Продвинутая конфигурация throttleTime
 По умолчанию оператор `throttleTime` пропускает первое событие и игнорирует последующие. Но его поведение можно тонко перенастроить с помощью объекта конфигурации:
@@ -193,6 +255,8 @@ throttleTime(2000, asyncScheduler, {
 4.  **Пауза:** Введено слово `'Angular'`. Зарегистрирован `Timer_7` на 400мс. Пользователь замер и перестал печатать.
 5.  **Срабатывание:** Спустя 400мс полной тишины `Timer_7` успешно доходит до финала. Значение `'Angular'` выталкивается из буфера.
 6.  **Трансформация:** `distinctUntilChanged()` проверяет, отличается ли `'Angular'` от предыдущего поиска. Да, отличается. Строка уходит в `switchMap` для сетевого запроса к API.
+
+---
 
 ### 5. Типичные ошибки и их решение
 

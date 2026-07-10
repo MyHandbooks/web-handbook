@@ -21,6 +21,7 @@ status: "completed"
 ### Шаблон 1: Глобальная синглтон-служба состояния конфигурации
 *   **Назначение:** Описание глобальной службы для хранения и синхронного изменения настроек интерфейса на базе Сигналов.
 
+#### 1. Файл логики: `app-config.service.ts`
 ```typescript
 import { Injectable, signal, computed } from '@angular/core';
 
@@ -67,30 +68,45 @@ export class AppConfigService {
 ### Шаблон 2: Внедрение и использование в Standalone-компоненте
 *   **Назначение:** Безопасное подключение синглтон-сервиса в автономный компонент с помощью функционального API `inject()`.
 
+#### 1. Файл логики: `shell-header.ts`
 ```typescript
-import { Component, inject } from '@angular/core';
+import { Component, inject, ChangeDetectionStrategy } from '@angular/core';
 import { AppConfigService } from './app-config.service';
 
 @Component({
   selector: 'app-shell-header',
-  // Указываем standalone-режим, исключая необходимость в NgModule
-  standalone: true,
-  template: `
-    <header class="app-header">
-      <!-- Вызываем сигналы для декларативного обновления интерфейса -->
-      <button (click)="configService.toggleSidebar()">Toggle Menu</button>
-      <span>Текущая тема: {{ configService.currentTheme() }}</span>
-      <button (click)="configService.toggleTheme()">Переключить тему</button>
-    </header>
-  `,
-  styles: [`
-    .app-header { display: flex; gap: 16px; padding: 12px; }
-  `]
+  // template: Разметка вынесена во внешний HTML-файл
+  templateUrl: './shell-header.html',
+  // styles: Стили вынесены во внешний CSS-файл
+  styleUrl: './shell-header.css',
+  // OnPush оптимизирует производительность при работе с сигналами
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class ShellHeaderComponent {
+export class ShellHeader { // Имя класса очищено от устаревшего суффикса Component
   // Внедряем глобальную службу через современную функцию inject()
   // Конструктор компонента остается полностью пустым и чистым
   protected readonly configService = inject(AppConfigService);
+}
+```
+
+#### 2. Файл разметки: `shell-header.html`
+```html
+<header class="app-header">
+  <!-- Вызываем сигналы для декларативного обновления интерфейса -->
+  <button (click)="configService.toggleSidebar()">Toggle Menu</button>
+  <span>Текущая тема: {{ configService.currentTheme() }}</span>
+  <button (click)="configService.toggleTheme()">Переключить тему</button>
+</header>
+```
+
+#### 3. Файл стилей: `shell-header.css`
+```css
+.app-header {
+  display: flex;
+  gap: 16px;
+  padding: 12px;
+  background-color: var(--bg-secondary);
+  border-bottom: 1px solid var(--border);
 }
 ```
 
@@ -113,7 +129,7 @@ export class ShellHeaderComponent {
 ### 3. Детальный пошаговый разбор жизненного цикла глобального синглтона
 1.  **Компиляция:** Angular компилирует декоратор `@Injectable({ providedIn: 'root' })`, генерируя статический метод фабрики внутри класса сервиса.
 2.  **Запуск приложения (Bootstrap):** Приложение инициализируется в файле `main.ts` через `bootstrapApplication()`. Создается инжектор Root Injector. На этом этапе экземпляр класса `AppConfigService` **еще не создан** (ленивая инициализация).
-3.  **Первый вызов (On-Demand Instantiation):** Пользователь переходит на страницу, где рендерится `ShellHeaderComponent`. Компонент запрашивает зависимость `inject(AppConfigService)`.
+3.  **Первый вызов (On-Demand Instantiation):** Пользователь переходит на страницу, где рендерится `ShellHeader`. Компонент запрашивает зависимость `inject(AppConfigService)`.
 4.  **Создание экземпляра:** Root Injector проверяет свой внутренний реестр экземпляров (Map). Не найдя там созданного объекта, он запускает сгенерированную фабрику, создает экземпляр `AppConfigService`, сохраняет ссылку в реестре и возвращает её компоненту.
 5.  **Последующие вызовы:** Любой другой компонент на других страницах при вызове `inject(AppConfigService)` мгновенно получает ту же самую ссылку из Map-реестра Root Injector.
 6.  **Уничтожение:** Экземпляр сервиса живет в памяти до полного закрытия или перезагрузки вкладки приложения в браузере.
@@ -128,11 +144,11 @@ export class ShellHeaderComponent {
 // ПЛОХО (Спецификация providers перезапишет синглтон для этой ветви компонентов)
 @Component({
   selector: 'app-profile-feature',
-  standalone: true,
-  providers: [AppConfigService], // ! Ошибка: Создает локальный дубликат глобального сервиса
-  template: `...`
+  templateUrl: './profile-feature.html',
+  styleUrl: './profile-feature.css',
+  providers: [AppConfigService] // ! Ошибка: Создает локальный дубликат глобального сервиса
 })
-export class ProfileFeatureComponent {}
+export class ProfileFeature {}
 ```
 
 *   **Ошибка 2: Циклическая зависимость (Circular Dependency)**
@@ -144,18 +160,18 @@ export class ProfileFeatureComponent {}
     *   *Решение:* Если данные специфичны для конкретного экрана, используйте локальные сервисы (Scoped Services) уровня компонента. Если сервис обязан быть синглтоном, реализуйте в нем явный метод сброса состояния `reset()` и вызывайте его при уничтожении UI-компонента через хук жизненного цикла `onDestroy` или modern `DestroyRef`.
 
 ```typescript
-import { Injectable, signal, DestroyRef, inject } from '@angular/core';
+import { Component, signal, DestroyRef, inject } from '@angular/core';
 
 @Component({
   selector: 'app-search-screen',
-  standalone: true,
-  template: `...`
+  templateUrl: './search-screen.html',
+  styleUrl: './search-screen.css'
 })
-export class SearchScreenComponent {
+export class SearchScreen {
   private readonly searchService = inject(SearchService);
   
   constructor() {
-    // Безопасно очищаем глобальный кэш при уходе пользователя с экрана поиска
+    // Безопасно очищаем глобальный кэш при уходе пользователя со страницы поиска
     inject(DestroyRef).onDestroy(() => {
       this.searchService.clearResults();
     });

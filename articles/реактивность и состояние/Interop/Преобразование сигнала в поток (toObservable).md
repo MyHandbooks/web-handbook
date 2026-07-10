@@ -8,7 +8,7 @@ status: "completed"
 
 ## БЫСТРЫЙ СТАРТ
 
-*   **Функция `toObservable()`** — утилита из официального пакета `@angular/core/rxjs-interop`, которая преобразует реактивный сигнал Angular `Signal` в асинхронный поток RxJS `Observable`. Она является связующим звеном, позволяющим передавать синхронное состояние сигналов в мощную экосистему операторов RxJS.
+*   **Функция `toObservable()`** — утилита из официаческого пакета `@angular/core/rxjs-interop`, которая преобразует реактивный сигнал Angular `Signal` в асинхронный поток RxJS `Observable`. Она является связующим звеном, позволяющим передавать синхронное состояние сигналов в мощную экосистему операторов RxJS.
 *   **Асинхронная природа эмиссий:** Из-за того, что `toObservable` под капотом использует механизм эффектов `effect()` для отслеживания изменений, значения в результирующий поток испускаются **асинхронно** (через планировщик микрозадач).
 *   **Жизненный цикл подписки:**
     *   При подписке на результирующий `Observable` клиент немедленно (на следующем микрошаге) получает текущее значение сигнала.
@@ -25,8 +25,9 @@ status: "completed"
 ### Шаблон 1: Живой поиск по мере ввода в сигнал-свойство (Signal -> Observable -> Signal)
 *   **Назначение:** Реализация полного реактивного цикла, где ввод пользователя пишется напрямую в простой сигнал, который затем преобразуется в поток, дебаунсится, превращается в HTTP-запрос и возвращается обратно в сигнал для рендеринга.
 
+#### 1. Файл логики: `smart-search.ts`
 ```typescript
-import { Component, inject, signal, OnInit, DestroyRef } from '@angular/core';
+import { Component, inject, signal, ChangeDetectionStrategy } from '@angular/core';
 import { toObservable, toSignal } from '@angular/core/rxjs-interop';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable, of } from 'rxjs';
@@ -34,28 +35,13 @@ import { debounceTime, distinctUntilChanged, switchMap, catchError } from 'rxjs/
 
 @Component({
   selector: 'app-smart-search',
-  standalone: true,
-  template: `
-    <div class="search-container">
-      <!-- Связываем ввод текста напрямую с записью в сигнал searchModel -->
-      <input 
-        type="text" 
-        [value]="searchModel()" 
-        (input)="searchModel.set($any($event.target).value)" 
-        placeholder="Начните вводить..." 
-      />
-
-      <ul>
-        @for (item of results(); track item) {
-          <li>{{ item }}</li>
-        } @empty {
-          <li>Введите текст для поиска...</li>
-        }
-      </ul>
-    </div>
-  `
+  // standalone: true опускается по умолчанию начиная с v19
+  imports: [], // standalone-компоненты не требуют импорта CommonModule при использовании встроенного Control Flow
+  templateUrl: './smart-search.html',
+  styleUrl: './smart-search.css',
+  changeDetection: ChangeDetectionStrategy.OnPush // OnPush минимизирует паразитные запуски Change Detection
 })
-export class SmartSearchComponent implements OnInit {
+export class SmartSearch { // Имя класса очищено от устаревшего суффикса Component
   private readonly http = inject(HttpClient);
   private readonly api = 'https://api.enterprise-service.com/v1/search';
 
@@ -89,13 +75,50 @@ export class SmartSearchComponent implements OnInit {
 }
 ```
 
+#### 2. Файл разметки: `smart-search.html`
+```html
+<div class="search-container">
+  <!-- Связываем ввод текста напрямую с записью в сигнал searchModel -->
+  <input 
+    type="text" 
+    [value]="searchModel()" 
+    (input)="searchModel.set($any($event.target).value)" 
+    placeholder="Начните вводить..." 
+    class="theme-input"
+  />
+
+  <ul class="results-list">
+    @for (item of results(); track item) {
+      <li>{{ item }}</li>
+    } @empty {
+      <li>Введите текст для поиска...</li>
+    }
+  </ul>
+</div>
+```
+
+#### 3. Файл стилей: `smart-search.css`
+```css
+.search-container {
+  padding: 16px;
+  background-color: var(--bg-secondary);
+  border-radius: 8px;
+}
+.results-list {
+  margin-top: 12px;
+  list-style-type: none;
+  padding: 0;
+}
+```
+
 ---
 
 ### Шаблон 2: Триггер асинхронного сохранения при изменении реактивного состояния
 *   **Назначение:** Автоматический запуск сохранения настроек на сервере с помощью оператора `concatMap` каждый раз, когда пользователь изменяет свойства темы оформления в сигнале.
 
+#### 1. Файл логики: `theme-auto-saver.ts`
 ```typescript
-import { Component, signal, inject, OnInit, DestroyRef } from '@angular/core';
+import { Component, signal, inject, OnInit, DestroyRef, ChangeDetectionStrategy } from '@angular/core';
 import { toObservable } from '@angular/core/rxjs-interop';
 import { HttpClient } from '@angular/common/http';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
@@ -109,15 +132,12 @@ export interface UserTheme {
 
 @Component({
   selector: 'app-theme-auto-saver',
-  standalone: true,
-  template: `
-    <div class="saver-box">
-      <button (click)="changeColor('#fbbf24')">Янтарный</button>
-      <button (click)="changeColor('#3b82f6')">Синий</button>
-    </div>
-  `
+  imports: [],
+  templateUrl: './theme-auto-saver.html',
+  styleUrl: './theme-auto-saver.css',
+  changeDetection: ChangeDetectionStrategy.OnPush // OnPush оптимизирует Change Detection при использовании сигналов
 })
-export class ThemeAutoSaverComponent implements OnInit {
+export class ThemeAutoSaver implements OnInit {
   private readonly http = inject(HttpClient);
   private readonly destroyRef = inject(DestroyRef);
   private readonly api = 'https://api.enterprise-service.com/v1/theme-save';
@@ -160,6 +180,28 @@ export class ThemeAutoSaverComponent implements OnInit {
 }
 ```
 
+#### 2. Файл разметки: `theme-auto-saver.html`
+```html
+<div class="saver-box">
+  <button (click)="changeColor('#fbbf24')">Янтарный</button>
+  <button (click)="changeColor('#3b82f6')">Синий</button>
+</div>
+```
+
+#### 3. Файл стилей: `theme-auto-saver.css`
+```css
+.saver-box {
+  display: flex;
+  gap: 8px;
+  padding: 12px;
+}
+button {
+  padding: 8px 12px;
+  cursor: pointer;
+  border-radius: 6px;
+}
+```
+
 ---
 
 ## ГЛУБОКОЕ ПОГРУЖЕНИЕ
@@ -196,10 +238,10 @@ console.log('Сигнал равен:', mySignal());
 RxJS идеален для **асинхронных событийных цепочек и проталкивания данных (Push)**. Преобразование `toObservable` позволяет взять синхронный узел графа (Сигнал), обернуть его в событие изменения и передать в мощный конвейер операторов времени и фильтрации (debounce, delay, filter).
 
 ### 3. Пошаговый разбор жизненного цикла конвейера
-Рассмотрим прохождение данных в `SmartSearchComponent` (Шаблон 1) при вводе слова `Angular`:
+Рассмотрим движение данных в `SmartSearch` (Шаблон 1) при вводе слова `Angular`:
 
 1.  **Ввод данных:** Пользователь вводит букву `r` $\rightarrow$ срабатывает метод `searchModel.set('Angular')`.
-2.  **Уведомление эффекта:** Внутренний эффект в `toObservable` помечается как dirty. Планировщик ставит его выполнение в очередь микрозадач.
+2.  **Уведомление эффекта:** Внутренний эффект в `toObservable` помечается как dirty. На микрошаге планировщик ставит его выполнение в очередь микрозадач.
 3.  **Асинхронная эмиссия:** Как только синхронный стек очищается, эффект просыпается, считывает значение `'Angular'` и отправляет его в поток `searchModel$`.
 4.  **Сжатие по времени:** Оператор `debounceTime(400)` запускает внутренний таймер на 400мс.
 5.  **Отмена старого запроса:** Если таймер истек и новых букв не пришло, значение передается в `switchMap`. `switchMap` отменяет предыдущий HTTP-запрос (если он выполнялся) и инициирует отправку нового GET-запроса `?q=Angular`.
@@ -207,22 +249,41 @@ RxJS идеален для **асинхронных событийных цеп�
 
 ### 4. Типичные ошибки и их решение
 
-*   **Ошибка 1: Вызов toObservable() вне Injection Context**
+*   **Ошибка 1: Вызов toObservable() вне Injection Context (Методы, хуки)**
     *   *Симптомы:* Ошибка рантайма `NG0203: toObservable() can only be used within an active injection context`.
-    *   *Физика процесса:* Разработчик пытается вызвать функцию динамически внутри метода: `loadData() { const stream$ = toObservable(this.mySignal); }`. Так как `toObservable` под капотом использует `effect()`, он обязан иметь доступ к инжектору для автоматической отписки при уничтожении контекста.
+    *   *Физика процесса:* Разработчик пытается вызвать функцию динамически внутри метода: `loadData() { const stream$ = toObservable(this.mySignal); }`. Поскольку `toObservable` под капотом использует `effect()`, он обязан иметь доступ к инжектору для автоматической отписки при уничтожении контекста.
     *   *Решение:* Объявляйте вызовы `toObservable` строго на этапе инициализации свойств класса. Если динамический вызов необходим, передавайте `Injector` явно через опциональный конфигурационный объект.
 
 ```typescript
-// ОШИБКА: Вызов в обычном методе без инжектора упадет в рантайме
+// ОШИБКА: toObservable() внутри обычного метода класса упадет в рантайме
 // public getStream() { return toObservable(this.mySignal); }
 
-// ИСПРАВЛЕНИЕ А (Лучшее): Объявление в контексте свойств класса
-public readonly myStream$ = toObservable(this.mySignal);
+// ИСПРАВЛЕНИЕ А (Лучшее): Объявление в контексте инициализации класса
+@Component({
+  selector: 'app-tracker',
+  templateUrl: './tracker.html',
+  styleUrl: './tracker.css',
+  changeDetection: ChangeDetectionStrategy.OnPush
+})
+export class Tracker {
+  public readonly mySignal = signal('initial');
+  public readonly myStream$ = toObservable(this.mySignal);
+}
 
-// ИСПРАВЛЕНИЕ Б: Явная передача Injector при динамическом вызове
-private readonly injector = inject(Injector);
-public getStream() {
-  return toObservable(this.mySignal, { injector: this.injector });
+// ИСПРАВЛЕНИЕ Б: Передача инжектора вручную при динамическом вызове
+@Component({
+  selector: 'app-dynamic-tracker',
+  templateUrl: './dynamic-tracker.html',
+  styleUrl: './dynamic-tracker.css',
+  changeDetection: ChangeDetectionStrategy.OnPush
+})
+export class DynamicTracker {
+  private readonly injector = inject(Injector);
+  public readonly mySignal = signal('initial');
+
+  public getStream(): Observable<string> {
+    return toObservable(this.mySignal, { injector: this.injector });
+  }
 }
 ```
 

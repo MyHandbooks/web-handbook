@@ -21,6 +21,7 @@ status: "completed"
 ### Шаблон 1: Управление жизненным циклом сетевого запроса на Union-типе
 *   **Назначение:** Отрисовка различных состояний интерфейса (ожидание, загрузка, успех, ошибка) в зависимости от значения строкового литерала состояния.
 
+#### 1. Файл логики: `switch-status.ts`
 ```typescript
 import { Component, ChangeDetectionStrategy, signal } from '@angular/core';
 
@@ -29,65 +30,12 @@ export type NetworkRequestState = 'idle' | 'loading' | 'success' | 'error';
 
 @Component({
   selector: 'app-switch-status',
-  standalone: true,
   imports: [], // Встроенный Control Flow не требует внешних импортов директив в standalone-компоненте
-  template: `
-    <div class="status-card">
-      <!-- 
-        Переключатель считывает текущий реактивный сигнал состояния.
-        Вычисление значения происходит единожды за проход проверки изменений.
-      -->
-      @switch (currentRequestState()) {
-        @case ('idle') {
-          <!-- Отображается, когда процесс еще не был запущен -->
-          <div class="state-box idle">
-            <p>Система готова к загрузке данных.</p>
-            <button (click)="startProcessing()">Начать импорт</button>
-          </div>
-        }
-        @case ('loading') {
-          <!-- Отображается во время асинхронного выполнения -->
-          <div class="state-box loading">
-            <div class="spinner"></div>
-            <p>Выполняется сетевое взаимодействие...</p>
-          </div>
-        }
-        @case ('success') {
-          <!-- Отображается при успешном завершении -->
-          <div class="state-box success">
-            <p>Данные успешно импортированы в базу.</p>
-            <button (click)="resetState()">Вернуться в начало</button>
-          </div>
-        }
-        @case ('error') {
-          <!-- Отображается при сбое операции -->
-          <div class="state-box error">
-            <p>Произошел критический сбой передачи данных.</p>
-            <button (click)="startProcessing()">Повторить попытку</button>
-          </div>
-        }
-        @default {
-          <!-- Резервный блок на случай непредвиденных рантайм-состояний -->
-          <div class="state-box default">
-            <p>Неизвестный статус системы.</p>
-          </div>
-        }
-      }
-    </div>
-  `,
-  styles: [`
-    .status-card { padding: 20px; border: 1px solid var(--border); border-radius: 8px; }
-    .state-box { padding: 15px; border-radius: 6px; text-align: center; }
-    .idle { border-left: 4px solid var(--text-muted); }
-    .loading { border-left: 4px solid var(--accent); }
-    .success { border-left: 4px solid var(--success-text); background-color: var(--success-bg); }
-    .error { border-left: 4px solid var(--error-text); background-color: var(--error-bg); }
-    .spinner { border: 3px solid var(--border); border-top: 3px solid var(--accent); border-radius: 50%; width: 24px; height: 24px; animation: spin 1s linear infinite; margin: 0 auto 10px; }
-    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-  `],
+  templateUrl: './switch-status.html',
+  styleUrl: './switch-status.css',
   changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class SwitchStatusComponent {
+export class SwitchStatus { // Имя класса не содержит суффикса Component
   // Реактивный сигнал, контролирующий текущее состояние интерфейса
   readonly currentRequestState = signal<NetworkRequestState>('idle');
 
@@ -108,11 +56,106 @@ export class SwitchStatusComponent {
 }
 ```
 
+#### 2. Файл разметки: `switch-status.html`
+```html
+<div class="status-card">
+  <!-- 
+    Переключатель считывает текущий реактивный сигнал состояния.
+    Вычисление значения происходит единожды за проход проверки изменений.
+  -->
+  @switch (currentRequestState()) {
+    @case ('idle') {
+      <!-- Отображается, когда процесс еще не был запущен -->
+      <div class="state-box idle">
+        <p>Система готова к загрузке данных.</p>
+        <button (click)="startProcessing()">Начать импорт</button>
+      </div>
+    }
+    @case ('loading') {
+      <!-- Отображается во время асинхронного выполнения -->
+      <div class="state-box loading">
+        <div class="spinner"></div>
+        <p>Выполняется сетевое взаимодействие...</p>
+      </div>
+    }
+    @case ('success') {
+      <!-- Отображается при успешном завершении -->
+      <div class="state-box success">
+        <p>Данные успешно импортированы в базу.</p>
+        <button (click)="resetState()">Вернуться в начало</button>
+      </div>
+    }
+    @case ('error') {
+      <!-- Отображается при сбое операции -->
+      <div class="state-box error">
+        <p>Произошел критический сбой передачи данных.</p>
+        <button (click)="startProcessing()">Повторить попытку</button>
+      </div>
+    }
+    @default {
+      <!-- Резервный блок на случай непредвиденных рантайм-состояний -->
+      <div class="state-box default">
+        <p>Неизвестный статус системы.</p>
+      </div>
+    }
+  }
+</div>
+```
+
+#### 3. Файл стилей: `switch-status.css`
+```css
+.status-card {
+  padding: 20px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.state-box {
+  padding: 15px;
+  border-radius: 6px;
+  text-align: center;
+}
+
+.idle {
+  border-left: 4px solid var(--text-muted);
+}
+
+.loading {
+  border-left: 4px solid var(--accent);
+}
+
+.success {
+  border-left: 4px solid var(--success-text);
+  background-color: var(--success-bg);
+}
+
+.error {
+  border-left: 4px solid var(--error-text);
+  background-color: var(--error-bg);
+}
+
+.spinner {
+  border: 3px solid var(--border);
+  border-top: 3px solid var(--accent);
+  border-radius: 50%;
+  width: 24px;
+  height: 24px;
+  animation: spin 1s linear infinite;
+  margin: 0 auto 10px;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+```
+
 ---
 
 ### Шаблон 2: Полиморфный рендеринг карточек контента (Дискриминантные объединения)
 *   **Назначение:** Отрисовка различных типов UI-карточек (текстовая, изображение, видео) на основе дискриминантного свойства `type` с автоматическим сужением типов TypeScript внутри веток шаблона.
 
+#### 1. Файл логики: `switch-polymorphic.ts`
 ```typescript
 import { Component, ChangeDetectionStrategy, signal } from '@angular/core';
 
@@ -142,54 +185,12 @@ export type ContentCardPayload = TextCard | ImageCard | VideoCard;
 
 @Component({
   selector: 'app-switch-polymorphic',
-  standalone: true,
   imports: [],
-  template: `
-    <div class="workspace">
-      <!-- 
-        Ветвление рендеринга на основе дискриминантного поля 'type'.
-        Для каждого блока @case компилятор TypeScript автоматически сузит тип 
-        объекта 'payload', делая доступными только специфичные свойства.
-      -->
-      @switch (payload().type) {
-        @case ('text') {
-          <!-- TS знает, что здесь payload - это TextCard. Доступно свойство contentText -->
-          <div class="render-box text">
-            <h4>{{ payload().header }}</h4>
-            <p class="body-text">{{ getTextPayload().contentText }}</p>
-          </div>
-        }
-        @case ('image') {
-          <!-- TS знает, что здесь payload - это ImageCard. Доступны свойства imageUrl и imageAlt -->
-          <div class="render-box image">
-            <h4>{{ payload().header }}</h4>
-            <img [src]="getImagePayload().imageUrl" [alt]="getImagePayload().imageAlt" class="responsive-img">
-          </div>
-        }
-        @case ('video') {
-          <!-- TS знает, что здесь payload - это VideoCard. Доступны свойства videoUrl и duration -->
-          <div class="render-box video">
-            <h4>{{ payload().header }}</h4>
-            <div class="video-preview">
-              <span class="play-icon">▶</span>
-              <span>Продолжительность: {{ getVideoPayload().duration }} сек.</span>
-            </div>
-          </div>
-        }
-      }
-    </div>
-  `,
-  styles: [`
-    .workspace { max-width: 400px; }
-    .render-box { border: 1px solid var(--border); border-radius: 8px; padding: 16px; background-color: var(--bg-secondary); }
-    .responsive-img { width: 100%; height: auto; border-radius: 4px; margin-top: 8px; }
-    .body-text { color: var(--text-muted); font-size: 0.9rem; margin-top: 8px; }
-    .video-preview { display: flex; align-items: center; gap: 8px; margin-top: 10px; font-size: 0.85rem; color: var(--accent); }
-    .play-icon { font-size: 1.2rem; }
-  `],
+  templateUrl: './switch-polymorphic.html',
+  styleUrl: './switch-polymorphic.css',
   changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class SwitchPolymorphicComponent {
+export class SwitchPolymorphic {
   // Начальная инициализация сигнального хранилища текстовым типом данных
   readonly payload = signal<ContentCardPayload>({
     type: 'text',
@@ -209,6 +210,83 @@ export class SwitchPolymorphicComponent {
   getVideoPayload(): VideoCard {
     return this.payload() as VideoCard;
   }
+}
+```
+
+#### 2. Файл разметки: `switch-polymorphic.html`
+```html
+<div class="workspace">
+  <!-- 
+    Ветвление рендеринга на основе дискриминантного поля 'type'.
+    Для каждого блока @case компилятор TypeScript автоматически сузит тип 
+    объекта 'payload', делая доступными только специфичные свойства.
+  -->
+  @switch (payload().type) {
+    @case ('text') {
+      <!-- TS знает, что здесь payload - это TextCard. Доступно свойство contentText -->
+      <div class="render-box text">
+        <h4>{{ payload().header }}</h4>
+        <p class="body-text">{{ getTextPayload().contentText }}</p>
+      </div>
+    }
+    @case ('image') {
+      <!-- TS знает, что здесь payload - это ImageCard. Доступны свойства imageUrl и imageAlt -->
+      <div class="render-box image">
+        <h4>{{ payload().header }}</h4>
+        <img [src]="getImagePayload().imageUrl" [alt]="getImagePayload().imageAlt" class="responsive-img">
+      </div>
+    }
+    @case ('video') {
+      <!-- TS знает, что здесь payload - это VideoCard. Доступны свойства videoUrl и duration -->
+      <div class="render-box video">
+        <h4>{{ payload().header }}</h4>
+        <div class="video-preview">
+          <span class="play-icon">▶</span>
+          <span>Продолжительность: {{ getVideoPayload().duration }} сек.</span>
+        </div>
+      </div>
+    }
+  }
+</div>
+```
+
+#### 3. Файл стилей: `switch-polymorphic.css`
+```css
+.workspace {
+  max-width: 400px;
+}
+
+.render-box {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 16px;
+  background-color: var(--bg-secondary);
+}
+
+.responsive-img {
+  width: 100%;
+  height: auto;
+  border-radius: 4px;
+  margin-top: 8px;
+}
+
+.body-text {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  margin-top: 8px;
+}
+
+.video-preview {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+  font-size: 0.85rem;
+  color: var(--accent);
+}
+
+.play-icon {
+  font-size: 1.2rem;
 }
 ```
 
@@ -237,7 +315,7 @@ TypeScript нативно умеет производить сужение ти�
 1.  **Обновление реактивного узла:** Метод `.set('success')` меняет значение сигнала. Angular помечает компонент для перерисовки.
 2.  **Вычисление значения переключателя:** Рантайм считывает состояние сигнала и получает строку `'success'`.
 3.  **Деструктуризация предыдущей ветки:** Предыдущий блок `@case ('loading')` деактивируется. Его DOM-элементы физически удаляются из разметки, а связанные ресурсы и обработчики уничтожаются.
-4.  **Активация целевого блока:** Рантайм выполняет прямой переход к блоку `@case ('success')`, инициализирует его DOM-структуру и выполняет монтирование в дерево рендеринга.
+4.  **Активация целевого блока:** Рантайм выполняет прямой переход к блоку `@case ('success')`, Инициализирует его DOM-структуру и выполняет монтирование в дерево рендеринга.
 
 ---
 
@@ -250,21 +328,23 @@ TypeScript нативно умеет производить сужение ти�
 
 ```typescript
 // ОШИБКА: Отсутствие дефолтной ветки. При получении нового нерасписанного статуса разметка скроется без предупреждения
-@switch (state()) {
-  @case ('active') { <active-view /> }
-  @case ('disabled') { <disabled-view /> }
-}
+// В шаблоне:
+// @switch (state()) {
+//   @case ('active') { <active-view /> }
+//   @case ('disabled') { <disabled-view /> }
+// }
 
 // ИСПРАВЛЕНИЕ: Обязательное добавление резервного блока
-@switch (state()) {
-  @case ('active') { <active-view /> }
-  @case ('disabled') { <disabled-view /> }
-  @default {
-    <div class="warning-alert">
-      <span>Обнаружен неподдерживаемый статус системы. Обратитесь в техподдержку.</span>
-    </div>
-  }
-}
+// В шаблоне:
+// @switch (state()) {
+//   @case ('active') { <active-view /> }
+//   @case ('disabled') { <disabled-view /> }
+//   @default {
+//     <div class="warning-alert">
+//       <span>Обнаружен неподдерживаемый статус системы.</span>
+//     </div>
+//   }
+// }
 ```
 
 *   **Ошибка 2: Попытка выполнения сложных логических сравнений внутри `@case`**
@@ -274,18 +354,18 @@ TypeScript нативно умеет производить сужение ти�
 
 ```typescript
 // ОШИБКА: Попытка использовать операторы сравнения внутри case
-@switch (userScore()) {
-  @case (userScore() >= 90) { <span>Отлично</span> } // Сбой логики и компиляции
-}
+// @switch (userScore()) {
+//   @case (userScore() >= 90) { <span>Отлично</span> } // Сбой логики и компиляции
+// }
 
 // ИСПРАВЛЕНИЕ: Использование @if для диапазонов и сравнений
-@if (userScore() >= 90) {
-  <span>Отлично</span>
-} @else if (userScore() >= 50) {
-  <span>Хорошо</span>
-} @else {
-  <span>Неудовлетворительно</span>
-}
+// @if (userScore() >= 90) {
+//   <span>Отлично</span>
+// } @else if (userScore() >= 50) {
+//   <span>Хорошо</span>
+// } @else {
+//   <span>Неудовлетворительно</span>
+// }
 ```
 
 *   **Ошибка 3: Вычисление тяжелых динамических выражений в заголовке `@switch`**
@@ -295,8 +375,8 @@ TypeScript нативно умеет производить сужение ти�
 
 ```typescript
 // ОШИБКА: Функция генерирует новый объект при каждом проходе, вызывая бесконечный ререндеринг DOM
-@switch (getComplexDynamicObject()) { ... }
+// @switch (getComplexDynamicObject()) { ... }
 
 // ИСПРАВЛЕНИЕ: Передача примитивного ключа-идентификатора состояния
-@switch (activeStateId()) { ... }
+// @switch (activeStateId()) { ... }
 ```

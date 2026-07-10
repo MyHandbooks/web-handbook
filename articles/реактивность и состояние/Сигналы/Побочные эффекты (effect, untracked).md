@@ -21,21 +21,19 @@ status: "completed"
 ### Шаблон 1: Синхронизация состояния с LocalStorage (Базовый эффект)
 *   **Назначение:** Автоматическое и надежное сохранение настроек интерфейса (например, текущей цветовой темы) в локальное хранилище браузера при каждом изменении сигнала.
 
+#### 1. Файл логики: `theme-selector.ts`
 ```typescript
-import { Component, effect, signal } from '@angular/core';
+import { Component, effect, signal, ChangeDetectionStrategy } from '@angular/core';
 
 @Component({
   selector: 'app-theme-selector',
-  standalone: true,
-  template: `
-    <div class="theme-card">
-      <p>Активная тема: {{ currentTheme() }}</p>
-      <button (click)="setTheme('light-theme')">Светлая</button>
-      <button (click)="setTheme('dark-theme')">Темная</button>
-    </div>
-  `
+  // standalone: true опускается по умолчанию начиная с v19
+  imports: [],
+  templateUrl: './theme-selector.html',
+  styleUrl: './theme-selector.css',
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class ThemeSelectorComponent {
+export class ThemeSelector { // Имя класса очищено от суффикса Component
   // Инициализируем сигнал, пытаясь сначала прочитать сохраненное значение из хранилища
   public readonly currentTheme = signal<string>(
     localStorage.getItem('app_user_theme') || 'dark-theme'
@@ -63,26 +61,47 @@ export class ThemeSelectorComponent {
 }
 ```
 
+#### 2. Файл разметки: `theme-selector.html`
+```html
+<div class="theme-card">
+  <p>Активная тема: {{ currentTheme() }}</p>
+  <button (click)="setTheme('light-theme')">Светлая</button>
+  <button (click)="setTheme('dark-theme')">Темная</button>
+</div>
+```
+
+#### 3. Файл стилей: `theme-selector.css`
+```css
+.theme-card {
+  padding: 16px;
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+button {
+  margin-right: 8px;
+  padding: 6px 12px;
+  cursor: pointer;
+}
+```
+
 ---
 
 ### Шаблон 2: Эффект очистки ресурсов через onCleanup
 *   **Назначение:** Использование встроенного в эффект коллбэка очистки для уничтожения фоновых асинхронных таймеров, подписок или сокет-соединений перед каждым повторным запуском эффекта или при уничтожении компонента.
 
+#### 1. Файл логики: `polling-monitor.ts`
 ```typescript
-import { Component, effect, signal } from '@angular/core';
+import { Component, effect, signal, ChangeDetectionStrategy } from '@angular/core';
 
 @Component({
   selector: 'app-polling-monitor',
-  standalone: true,
-  template: `
-    <div class="monitor">
-      <p>Текущий интервал опроса сервера: {{ pollingIntervalMs() }}мс</p>
-      <button (click)="setInterval(1000)">Быстро (1с)</button>
-      <button (click)="setInterval(5000)">Медленно (5с)</button>
-    </div>
-  `
+  imports: [],
+  templateUrl: './polling-monitor.html',
+  styleUrl: './polling-monitor.css',
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class PollingMonitorComponent {
+export class PollingMonitor {
   // Сигнал, управляющий временем задержки опроса сервера
   public readonly pollingIntervalMs = signal<number>(3000);
 
@@ -109,7 +128,7 @@ export class PollingMonitorComponent {
   }
 
   private fetchDiagnosticData(): void {
-    console.log('[Network] Диагностический запрос отправлен на сервер...');
+    console.log('[Network] Diagnostic Request Triggered...');
   }
 
   public setInterval(ms: number): void {
@@ -118,28 +137,46 @@ export class PollingMonitorComponent {
 }
 ```
 
+#### 2. Файл разметки: `polling-monitor.html`
+```html
+<div class="monitor">
+  <p>Текущий интервал опроса сервера: {{ pollingIntervalMs() }}мс</p>
+  <button (click)="setInterval(1000)">Быстро (1с)</button>
+  <button (click)="setInterval(5000)">Медленно (5с)</button>
+</div>
+```
+
+#### 3. Файл стилей: `polling-monitor.css`
+```css
+.monitor {
+  padding: 16px;
+  background-color: var(--bg-secondary);
+  border-radius: 8px;
+}
+button {
+  margin-right: 8px;
+  padding: 6px 12px;
+  cursor: pointer;
+}
+```
+
 ---
 
 ### Шаблон 3: Чтение нереактивных данных через untracked()
 *   **Назначение:** Запуск эффекта в ответ на изменение одного сигнала-триггера с параллельным считыванием вспомогательных данных из другого сигнала, изменения которого НЕ должны вызывать повторный запуск эффекта.
 
+#### 1. Файл логики: `analytics-tracker.ts`
 ```typescript
-import { Component, effect, signal, untracked } from '@angular/core';
+import { Component, effect, signal, untracked, ChangeDetectionStrategy } from '@angular/core';
 
 @Component({
   selector: 'app-analytics-tracker',
-  standalone: true,
-  template: `
-    <div class="tracker">
-      <p>Счетчик событий: {{ clickCount() }}</p>
-      <p>Имя активного профиля: {{ activeProfileName() }}</p>
-
-      <button (click)="registerClick()">Зафиксировать клик (Отправить лог)</button>
-      <button (click)="changeProfileName()">Обновить имя профиля</button>
-    </div>
-  `
+  imports: [],
+  templateUrl: './analytics-tracker.html',
+  styleUrl: './analytics-tracker.css',
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class AnalyticsTrackerComponent {
+export class AnalyticsTracker {
   // Сигнал-триггер. Каждое его изменение должно запускать эффект.
   public readonly clickCount = signal<number>(0);
   
@@ -173,6 +210,32 @@ export class AnalyticsTrackerComponent {
     // Это изменение НЕ вызовет отправку лога аналитики, так как сигнал прочитан через untracked()
     this.activeProfileName.set('Ведущий Инженер');
   }
+}
+```
+
+#### 2. Файл разметки: `analytics-tracker.html`
+```html
+<div class="tracker">
+  <p>Счетчик событий: {{ clickCount() }}</p>
+  <p>Имя активного профиля: {{ activeProfileName() }}</p>
+
+  <button (click)="registerClick()">Зафиксировать клик (Отправить лог)</button>
+  <button (click)="changeProfileName()">Обновить имя профиля</button>
+</div>
+```
+
+#### 3. Файл стилей: `analytics-tracker.css`
+```css
+.tracker {
+  padding: 16px;
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+button {
+  margin-right: 8px;
+  padding: 6px 12px;
+  cursor: pointer;
 }
 ```
 
@@ -212,6 +275,8 @@ this.count.set(3);
 4.  **Уничтожение ресурсов:** Angular синхронно выполняет код очистки: `clearInterval(timerId)`. Предыдущий таймер на 3000мс уничтожается на уровне ядра браузера.
 5.  **Новый запуск:** Тело эффекта запускается с новым значением `interval = 1000`. Создается новый таймер, и его новый ID регистрируется для последующей очистки.
 
+---
+
 ### 4. Типичные ошибки и их решение
 
 *   **Ошибка 1: Прямая запись в сигналы внутри эффекта (allowSignalWrites Error)**
@@ -221,7 +286,7 @@ this.count.set(3);
 
 ```typescript
 // ОШИБКА: Запись заблокирована фреймворком
-// effect(() => { this.logSignal.set(this.count() * 2); });
+effect(() => { this.logSignal.set(this.count() * 2); });
 
 // ИСПРАВЛЕНИЕ А (Лучшее): Использование реактивных связей через computed
 const doubleCount = computed(() => this.count() * 2);
@@ -239,14 +304,18 @@ effect(() => {
 
 ```typescript
 // ОШИБКА: effect() вызван вне конструктора в обычном методе
-// @Component(...)
-// export class MyComp {
-//   startTracking() { effect(() => { ... }); } 
-// }
-
-// ИСПРАВЛЕНИЕ: Передача инжектора вручную при динамическом создании
 @Component(...)
 export class MyComp {
+  startTracking() { effect(() => { ... }); } 
+}
+
+// ИСПРАВЛЕНИЕ: Передача инжектора вручную при динамическом создании
+@Component({
+  selector: 'app-dynamic-good',
+  templateUrl: './dynamic-good.html',
+  styleUrl: './dynamic-good.css'
+})
+export class DynamicGood {
   private readonly injector = inject(Injector);
 
   public startTracking(): void {
@@ -264,9 +333,9 @@ export class MyComp {
 
 ```typescript
 // ОШИБКА: Каждая итерация эффекта будет вешать дублирующий слушатель событий
-// effect(() => {
-//   window.addEventListener('resize', this.handler);
-// });
+effect(() => {
+  window.addEventListener('resize', this.handler);
+});
 
 // ИСПРАВЛЕНИЕ: Старый слушатель гарантированно уничтожается перед созданием нового
 effect((onCleanup) => {

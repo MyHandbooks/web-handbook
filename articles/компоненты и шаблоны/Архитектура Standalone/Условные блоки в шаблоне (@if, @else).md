@@ -21,38 +21,18 @@ status: "completed"
 ### Шаблон 1: Базовое ветвление процессов обработки данных
 *   **Назначение:** Реализация простого ветвления UI для отображения лоадера или панели управления на основе реактивного булевого сигнала.
 
+#### 1. Файл логики: `conditional-basic.ts`
 ```typescript
 import { Component, ChangeDetectionStrategy, signal } from '@angular/core';
 
 @Component({
   selector: 'app-conditional-basic',
-  standalone: true, // Использование независимой архитектуры
-  imports: [],      // Встроенный Control Flow не требует внешних импортов в массиве dependencies
-  template: `
-    <div class="card-container">
-      <!-- Проверка реактивного флага активности фонового процесса -->
-      @if (isProcessingState()) {
-        <!-- Блок отображается и рендерится в DOM, только если сигнал возвращает true -->
-        <div class="loader-viewport">
-          <p class="pulse-text">Выполнение операции...</p>
-        </div>
-      } @else {
-        <!-- Блок компилируется как альтернативная ветка и заменяет лоадер при false -->
-        <div class="control-panel">
-          <p>Система готова к приему команд.</p>
-          <button (click)="triggerProcess()">Запустить процесс</button>
-        </div>
-      }
-    </div>
-  `,
-  styles: [`
-    .card-container { padding: 20px; border: 1px solid var(--border); }
-    .pulse-text { color: var(--accent); animation: pulse 1.5s infinite; }
-    @keyframes pulse { 0%, 100% { opacity: 0.6; } 50% { opacity: 1; } }
-  `],
+  imports: [], // Встроенный Control Flow не требует внешних импортов в массиве dependencies
+  templateUrl: './conditional-basic.html',
+  styleUrl: './conditional-basic.css',
   changeDetection: ChangeDetectionStrategy.OnPush // OnPush-стратегия минимизирует проверки при работе с Сигналами
 })
-export class ConditionalBasicComponent {
+export class ConditionalBasic { // Имя класса не содержит суффикса Component
   // Инициализация реактивного флага состояния процесса
   readonly isProcessingState = signal<boolean>(false);
 
@@ -68,11 +48,49 @@ export class ConditionalBasicComponent {
 }
 ```
 
+#### 2. Файл разметки: `conditional-basic.html`
+```html
+<div class="card-container">
+  <!-- Проверка реактивного флага активности фонового процесса -->
+  @if (isProcessingState()) {
+    <!-- Блок отображается и рендерится в DOM, только если сигнал возвращает true -->
+    <div class="loader-viewport">
+      <p class="pulse-text">Выполнение операции...</p>
+    </div>
+  } @else {
+    <!-- Блок компилируется как альтернативная ветка и заменяет лоадер при false -->
+    <div class="control-panel">
+      <p>Система готова к приему команд.</p>
+      <button (click)="triggerProcess()">Запустить процесс</button>
+    </div>
+  }
+</div>
+```
+
+#### 3. Файл стилей: `conditional-basic.css`
+```css
+.card-container {
+  padding: 20px;
+  border: 1px solid var(--border);
+}
+
+.pulse-text {
+  color: var(--accent);
+  animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 1; }
+}
+```
+
 ---
 
 ### Шаблон 2: Продвинутый рендеринг со снижением вложенности и сужением типов (`as local`)
 *   **Назначение:** Безопасный рендеринг сложной полезной нагрузки `TargetPayload` с созданием локальной переменной-алиаса шаблона для исключения дублирующих чтений сигналов.
 
+#### 1. Файл логики: `conditional-aliasing.ts`
 ```typescript
 import { Component, ChangeDetectionStrategy, signal } from '@angular/core';
 
@@ -85,43 +103,12 @@ export interface TargetPayload {
 
 @Component({
   selector: 'app-conditional-aliasing',
-  standalone: true,
   imports: [],
-  template: `
-    <div class="content-wrapper">
-      <!-- 
-        1. Считываем значение из сигнала currentDataState()
-        2. Синтаксис '; as payload' кэширует результат в локальную переменную шаблона 'payload'
-        3. Компилятор TypeScript автоматически сужает тип: внутри блока 'payload' гарантированно не равен null
-      -->
-      @if (currentDataState(); as payload) {
-        <div class="data-box">
-          <h3>Идентификатор: {{ payload.uniqueId }}</h3>
-          <p>Название ресурса: {{ payload.displayTitle }}</p>
-          <small>Размер пакета: {{ payload.sizeInBytes }} байт</small>
-          <button (click)="resetData()">Сбросить состояние</button>
-        </div>
-      } @else if (hasErrorState()) {
-        <!-- Проверка дополнительного логического флага ошибки при отсутствии данных -->
-        <div class="error-notification">
-          <p>Ошибка: Не удалось загрузить структуру данных.</p>
-        </div>
-      } @else {
-        <!-- Финальная заглушка пустого состояния (Empty State) -->
-        <div class="fallback-empty">
-          <p>Данные в памяти отсутствуют.</p>
-          <button (click)="loadMockData()">Инициализировать payload</button>
-        </div>
-      }
-    </div>
-  `,
-  styles: [`
-    .content-wrapper { border-left: 4px solid var(--accent); padding-left: 15px; }
-    .error-notification { color: var(--error-text); background-color: var(--error-bg); padding: 10px; }
-  `],
+  templateUrl: './conditional-aliasing.html',
+  styleUrl: './conditional-aliasing.css',
   changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class ConditionalAliasingComponent {
+export class ConditionalAliasing {
   // Сигнал данных, который изначально равен null, что требует сужения типов в шаблоне
   readonly currentDataState = signal<TargetPayload | null>(null);
 
@@ -142,6 +129,50 @@ export class ConditionalAliasingComponent {
   resetData(): void {
     this.currentDataState.set(null);
   }
+}
+```
+
+#### 2. Файл разметки: `conditional-aliasing.html`
+```html
+<div class="content-wrapper">
+  <!-- 
+    1. Считываем значение из сигнала currentDataState()
+    2. Синтаксис '; as payload' кэширует результат в локальную переменную шаблона 'payload'
+    3. Компилятор TypeScript автоматически сужает тип: внутри блока 'payload' гарантированно не равен null
+  -->
+  @if (currentDataState(); as payload) {
+    <div class="data-box">
+      <h3>Идентификатор: {{ payload.uniqueId }}</h3>
+      <p>Название ресурса: {{ payload.displayTitle }}</p>
+      <small>Размер пакета: {{ payload.sizeInBytes }} байт</small>
+      <button (click)="resetData()">Сбросить состояние</button>
+    </div>
+  } @else if (hasErrorState()) {
+    <!-- Проверка дополнительного логического флага ошибки при отсутствии данных -->
+    <div class="error-notification">
+      <p>Ошибка: Не удалось загрузить структуру данных.</p>
+    </div>
+  } @else {
+    <!-- Финальная заглушка пустого состояния (Empty State) -->
+    <div class="fallback-empty">
+      <p>Данные в памяти отсутствуют.</p>
+      <button (click)="loadMockData()">Инициализировать payload</button>
+    </div>
+  }
+</div>
+```
+
+#### 3. Файл стилей: `conditional-aliasing.css`
+```css
+.content-wrapper {
+  border-left: 4px solid var(--accent);
+  padding-left: 15px;
+}
+
+.error-notification {
+  color: var(--error-text);
+  background-color: var(--error-bg);
+  padding: 10px;
 }
 ```
 
@@ -172,7 +203,7 @@ readonly activeConfig = signal<ConfigOptions | undefined>(undefined);
 При использовании `@if (activeConfig(); as config)` компилятор TypeScript внутри контекста этого блока трансформирует тип переменной `config` из `ConfigOptions | undefined` в чистый тип `ConfigOptions`. Любая попытка обратиться к несуществующему свойству объекта `config` внутри блока вызовет ошибку еще на этапе сборки приложения (`NG8002: Property ... does not exist on type ConfigOptions`).
 
 ### 3. Детальный пошаговый разбор жизненного цикла рендеринга условий
-При изменении значения сигнала `currentDataState` в `ConditionalAliasingComponent` выполняются следующие фазы:
+При изменении значения сигнала `currentDataState` в `ConditionalAliasing` выполняются следующие фазы:
 1.  **Фиксация изменений (Signal Update):** Метод `.set()` обновляет значение сигнала. Граф реактивности Angular помечает текущий компонент как требующий проверки изменений (`dirty`).
 2.  **Запуск Change Detection:** Механизм OnPush-проверки доходит до компонента и вычисляет выражение в условии `@if (currentDataState() ...)`.
 3.  **Разрушение старого контекста:** Если предыдущее значение было объектом, а новое стало `null`, рантайм Angular запускает процедуру деструкции embedded-представления:
@@ -186,26 +217,29 @@ readonly activeConfig = signal<ConfigOptions | undefined>(undefined);
 
 *   **Ошибка 1: Вызов тяжелых функций или геттеров внутри логического выражения `@if`**
     *   *Симптомы:* Просадки производительности UI, медленный скроллинг, фризы интерфейса, сильная загрузка процессора (CPU).
-    *   *Физика процесса:* Если условие выглядит как `@if (checkAccessPermission())`, то при каждом цикле проверки изменений Angular вынужден заново вызывать метод `checkAccessPermission()`. Если внутри этого метода происходят сложные вычисления, фильтрация массивов или поиск в структурах, производительность приложения деградирует по экспоненте.
+    *   *Физика процесса:* Если условие выглядит как `@if (checkUserAccess())`, то при каждом цикле проверки изменений Angular вынужден заново вызывать метод `checkUserAccess()`. Если внутри этого метода происходят сложные вычисления, фильтрация массивов или поиск в структурах, производительность приложения деградирует по экспоненте.
     *   *Решение:* Перенести вычисление логического результата в мемоизированный сигнал `computed`.
 
 ```typescript
-// ОШИБКА: Функция checkUserAccess() будет вызываться при каждом микро-событии рендеринга
+// ПЛОХО (Функция checkUserAccess() будет вызываться при каждом микро-событии рендеринга)
 @Component({
-  template: `@if (checkUserAccess()) { <admin-panel /> }`
+  selector: 'app-bad',
+  templateUrl: './bad.html',
+  styleUrl: './bad.css'
 })
-export class BadComponent {
+export class Bad {
   checkUserAccess(): boolean {
-    // Тяжелые вычисления или фильтрация массива ролей пользователя
     return this.roles().some(r => r.name === 'Admin');
   }
 }
 
 // ИСПРАВЛЕНИЕ: Вычисление вынесено в computed-сигнал, кэширующий результат
 @Component({
-  template: `@if (isAdmin()) { <admin-panel /> }`
+  selector: 'app-good',
+  templateUrl: './good.html',
+  styleUrl: './good.css'
 })
-export class GoodComponent {
+export class Good {
   readonly roles = signal<Role[]>([]);
   // computed гарантирует, что вычисление сработает только при реальном изменении сигнала roles
   readonly isAdmin = computed(() => this.roles().some(r => r.name === 'Admin'));
@@ -219,18 +253,18 @@ export class GoodComponent {
 
 ```typescript
 // ОШИБКА: Чтение значения сигнала в обычную переменную прерывает реактивную цепочку
-export class DefectiveComponent {
+export class Defective {
   readonly isVisibleSignal = signal<boolean>(true);
   // Переменная получит значение true один раз и больше никогда не обновится
   readonly isVisible = this.isVisibleSignal(); 
 }
-// Шаблон: @if (isVisible) { ... } -> Никогда не обновится при вызове isVisibleSignal.set(false)
+// В HTML: @if (isVisible) { ... } -> Никогда не обновится при вызове isVisibleSignal.set(false)
 
 // ИСПРАВЛЕНИЕ: Прямое считывание сигнала в шаблоне
-export class FixedComponent {
+export class Fixed {
   readonly isVisible = signal<boolean>(true);
 }
-// Шаблон: @if (isVisible()) { ... } -> Реактивность сохранена в полном объеме
+// В HTML: @if (isVisible()) { ... } -> Реактивность сохранена в полном объеме
 ```
 
 *   **Ошибка 3: Утечка состояния или сброс пользовательского ввода при сокрытии компонентов**
@@ -241,17 +275,22 @@ export class FixedComponent {
 ```typescript
 // РЕШЕНИЕ: Использование CSS-скрытия вместо уничтожения DOM-структуры через @if
 @Component({
-  template: `
-    <!-- Элемент физически не удаляется из DOM, его состояние, значения полей и хуки сохраняются -->
-    <div [class.hidden]="!isTabActive()">
-      <heavy-form-component />
-    </div>
-  `,
-  styles: [`
-    .hidden { display: none !important; }
-  `]
+  selector: 'app-tab',
+  templateUrl: './tab.html',
+  styleUrl: './tab.css'
 })
-export class TabComponent {
+export class Tab {
   readonly isTabActive = signal<boolean>(true);
+}
+```
+```html
+<!-- Элемент физически не удаляется из DOM, его состояние, значения полей и хуки сохраняются -->
+<div [class.hidden]="!isTabActive()">
+  <heavy-form />
+</div>
+```
+```css
+.hidden {
+  display: none !important;
 }
 ```

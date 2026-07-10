@@ -23,24 +23,24 @@ status: "completed"
 ### Шаблон 1: Классический конвейер трансформации, фильтрации и логирования
 *   **Назначение:** Обработка сырого потока событий ввода: очистка от пустых значений, приведение к верхнему регистру и логирование каждого шага.
 
+#### 1. Файл логики: `text-processor.ts`
 ```typescript
-import { Component, inject, OnInit, signal, DestroyRef } from '@angular/core';
+import { Component, inject, OnInit, signal, DestroyRef, ChangeDetectionStrategy } from '@angular/core';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { map, filter, tap } from 'rxjs/operators';
 
 @Component({
   selector: 'app-text-processor',
-  standalone: true,
-  imports: [ReactiveFormsModule],
-  template: `
-    <div class="processor-card">
-      <input type="text" [formControl]="textControl" placeholder="Введите текст..." />
-      <p>Обработанный результат: <b>{{ processedValue() }}</b></p>
-    </div>
-  `
+  // standalone: true опускается по умолчанию начиная с v19
+  imports: [
+    ReactiveFormsModule // Подключаем модуль форм для работы с FormControl
+  ],
+  templateUrl: './text-processor.html',
+  styleUrl: './text-processor.css',
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class TextProcessorComponent implements OnInit {
+export class TextProcessor implements OnInit { // Имя класса очищено от суффикса Component
   private readonly destroyRef = inject(DestroyRef);
 
   // Управляющий контрол реактивной формы
@@ -78,28 +78,44 @@ export class TextProcessorComponent implements OnInit {
 }
 ```
 
+#### 2. Файл разметки: `text-processor.html`
+```html
+<div class="processor-card">
+  <input type="text" [formControl]="textControl" placeholder="Введите текст..." class="theme-input" />
+  <p>Обработанный результат: <b>{{ processedValue() }}</b></p>
+</div>
+```
+
+#### 3. Файл стилей: `text-processor.css`
+```css
+.processor-card {
+  padding: 16px;
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+```
+
 ---
 
 ### Шаблон 2: Ограничение эмиссий потока и безопасная работа с DOM
 *   **Назначение:** Ограничение времени жизни потока событий (например, реагирование только на первые 3 клика пользователя) с выполнением побочных эффектов.
 
+#### 1. Файл логики: `limited-clicker.ts`
 ```typescript
-import { Component, inject, ElementRef, viewChild, OnInit, DestroyRef } from '@angular/core';
+import { Component, inject, ElementRef, viewChild, OnInit, DestroyRef, ChangeDetectionStrategy, signal } from '@angular/core';
 import { fromEvent } from 'rxjs';
 import { map, filter, tap, take } from 'rxjs/operators';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 
 @Component({
   selector: 'app-limited-clicker',
-  standalone: true,
-  template: `
-    <div class="clicker-box">
-      <button #targetBtn class="action-btn">Кликни меня (Лимит: 3 раза)</button>
-      <p>Осталось кликов: <b>{{ remainingClicks() }}</b></p>
-    </div>
-  `
+  imports: [],
+  templateUrl: './limited-clicker.html',
+  styleUrl: './limited-clicker.css',
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class LimitedClickerComponent implements OnInit {
+export class LimitedClicker implements OnInit {
   private readonly destroyRef = inject(DestroyRef);
 
   // Запрашиваем нативную кнопку из шаблона через viewChild
@@ -137,6 +153,35 @@ export class LimitedClickerComponent implements OnInit {
 }
 ```
 
+#### 2. Файл разметки: `limited-clicker.html`
+```html
+<div class="clicker-box">
+  <button #targetBtn class="action-btn">Кликни меня (Лимит: 3 раза)</button>
+  <p>Осталось кликов: <b>{{ remainingClicks() }}</b></p>
+</div>
+```
+
+#### 3. Файл стилей: `limited-clicker.css`
+```css
+.clicker-box {
+  padding: 16px;
+  background-color: var(--bg-secondary);
+  border-radius: 8px;
+}
+.action-btn {
+  padding: 8px 16px;
+  background-color: var(--accent);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.action-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+```
+
 ---
 
 ## ГЛУБОКОЕ ПОГРУЖЕНИЕ
@@ -167,7 +212,7 @@ function pipe(...fns) {
 *   **Оператор `tap` — это легальный шлюз для побочных эффектов (Side Effects):** Он специально спроектирован так, чтобы перехватить проходящее значение, передать его во внешнюю систему (например, записать в `localStorage`, вызвать метод аналитики или обновить сигнал состояния UI) и передать это же значение дальше по цепочке в абсолютно неизменном виде. На системном уровне `tap` возвращает тот же самый Observable-источник, полностью игнорируя то, что вернула функция внутри него.
 
 ### 3. Детальный пошаговый разбор выполнения шаблона 1
-Проследим движение строки `"  hello  "` в `TextProcessorComponent` при вводе пользователем:
+Проследим движение строки `"  hello  "` в `TextProcessor` при вводе пользователем:
 
 1.  **Эмиссия события:** Пользователь вводит текст. Поток `valueChanges` испускает значение `"  hello  "`.
 2.  **Шаг 1 (`tap`):** Первая функция логирует строчку `"  hello  "`. Значение течет дальше без изменений.

@@ -23,21 +23,19 @@ status: "completed"
 ### Шаблон 1: Базовое форматирование и объединение сигналов
 *   **Назначение:** Синтез строки полного имени пользователя на основе сигналов имени, фамилии и роли с автоматическим кэшированием результата.
 
+#### 1. Файл логики: `user-badge.ts`
 ```typescript
-import { Component, computed, signal } from '@angular/core';
+import { Component, computed, signal, ChangeDetectionStrategy } from '@angular/core';
 
 @Component({
   selector: 'app-user-badge',
-  standalone: true,
-  template: `
-    <div class="badge">
-      <!-- При чтении fullName() Angular вернет значение из кэша, если имя или фамилия не менялись -->
-      <h4>Пользователь: {{ fullName() }}</h4>
-      <button (click)="changeName()">Сменить имя</button>
-    </div>
-  `
+  // standalone: true опускается по умолчанию начиная с v19
+  imports: [],
+  templateUrl: './user-badge.html',
+  styleUrl: './user-badge.css',
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class UserBadgeComponent {
+export class UserBadge { // Имя класса не содержит устаревшего суффикса Component
   // Инициализируем исходные изменяемые сигналы
   public readonly firstName = signal<string>('Иван');
   public readonly lastName = signal<string>('Иванов');
@@ -59,13 +57,33 @@ export class UserBadgeComponent {
 }
 ```
 
+#### 2. Файл разметки: `user-badge.html`
+```html
+<div class="badge">
+  <!-- При чтении fullName() Angular вернет значение из кэша, если имя или фамилия не менялись -->
+  <h4>Пользователь: {{ fullName() }}</h4>
+  <button (click)="changeName()">Сменить имя</button>
+</div>
+```
+
+#### 3. Файл стилей: `user-badge.css`
+```css
+.badge {
+  padding: 16px;
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+```
+
 ---
 
 ### Шаблон 2: Производительная фильтрация списка по поисковой строке
 *   **Назначение:** Динамический отбор элементов массива на основе поискового запроса. Использование `computed` предотвращает повторную фильтрацию при каждом цикле Change Detection, если фильтры не менялись.
 
+#### 1. Файл логики: `product-catalog.ts`
 ```typescript
-import { Component, computed, signal } from '@angular/core';
+import { Component, computed, signal, ChangeDetectionStrategy } from '@angular/core';
 
 export interface CatalogProduct {
   id: string;
@@ -74,28 +92,12 @@ export interface CatalogProduct {
 
 @Component({
   selector: 'app-product-catalog',
-  standalone: true,
-  template: `
-    <div class="catalog">
-      <!-- Связываем ввод текста с изменением сигнала searchQuery -->
-      <input 
-        type="text" 
-        placeholder="Поиск по каталогу..." 
-        (input)="updateSearch($event)" 
-      />
-
-      <ul>
-        <!-- Рендерим отфильтрованный список продуктов -->
-        @for (product of filteredProducts(); track product.id) {
-          <li>{{ product.title }}</li>
-        } @empty {
-          <li>Ничего не найдено</li>
-        }
-      </ul>
-    </div>
-  `
+  imports: [],
+  templateUrl: './product-catalog.html',
+  styleUrl: './product-catalog.css',
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class ProductCatalogComponent {
+export class ProductCatalog {
   // Сигнал, хранящий поисковый запрос пользователя
   public readonly searchQuery = signal<string>('');
 
@@ -132,28 +134,58 @@ export class ProductCatalogComponent {
 }
 ```
 
+#### 2. Файл разметки: `product-catalog.html`
+```html
+<div class="catalog">
+  <!-- Связываем ввод текста с изменением сигнала searchQuery -->
+  <input 
+    type="text" 
+    placeholder="Поиск по каталогу..." 
+    (input)="updateSearch($event)" 
+    class="theme-input"
+  />
+
+  <ul class="catalog-list">
+    <!-- Рендерим отфильтрованный список продуктов -->
+    @for (product of filteredProducts(); track product.id) {
+      <li>{{ product.title }}</li>
+    } @empty {
+      <li>Ничего не найдено</li>
+    }
+  </ul>
+</div>
+```
+
+#### 3. Файл стилей: `product-catalog.css`
+```css
+.catalog {
+  padding: 16px;
+  background-color: var(--bg-secondary);
+  border-radius: 8px;
+}
+.catalog-list {
+  margin-top: 12px;
+  padding-left: 20px;
+}
+```
+
 ---
 
 ### Шаблон 3: Динамическое отслеживание зависимостей (Ветвление логики)
 *   **Назначение:** Описание вычислений со сложной условной логикой, где Angular динамически регистрирует или отписывается от сигналов в зависимости от текущей ветки выполнения.
 
+#### 1. Файл логики: `conditional-tracker.ts`
 ```typescript
-import { Component, computed, signal } from '@angular/core';
+import { Component, computed, signal, ChangeDetectionStrategy } from '@angular/core';
 
 @Component({
   selector: 'app-conditional-tracker',
-  standalone: true,
-  template: `
-    <div class="tracker">
-      <p>Отображаемое значение: {{ processedValue() }}</p>
-
-      <button (click)="toggleMode()">Переключить режим ({{ useAlternative() ? 'Альтернативный' : 'Стандартный' }})</button>
-      <button (click)="updateSourceA()">Изменить Источник А</button>
-      <button (click)="updateSourceB()">Изменить Источник Б</button>
-    </div>
-  `
+  imports: [],
+  templateUrl: './conditional-tracker.html',
+  styleUrl: './conditional-tracker.css',
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class ConditionalTrackerComponent {
+export class ConditionalTracker {
   // Флаг переключения логической ветки вычислений
   public readonly useAlternative = signal<boolean>(false);
   
@@ -189,6 +221,34 @@ export class ConditionalTrackerComponent {
 }
 ```
 
+#### 2. Файл разметки: `conditional-tracker.html`
+```html
+<div class="tracker">
+  <p>Отображаемое значение: {{ processedValue() }}</p>
+
+  <div class="actions">
+    <button (click)="toggleMode()">Переключить режим ({{ useAlternative() ? 'Альтернативный' : 'Стандартный' }})</button>
+    <button (click)="updateSourceA()">Изменить Источник А</button>
+    <button (click)="updateSourceB()">Изменить Источник Б</button>
+  </div>
+</div>
+```
+
+#### 3. Файл стилей: `conditional-tracker.css`
+```css
+.tracker {
+  padding: 16px;
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+```
+
 ---
 
 ## ГЛУБОКОЕ ПОГРУЖЕНИЕ
@@ -204,9 +264,9 @@ export class ConditionalTrackerComponent {
    [Вычисление Г]
 ```
 
-Если Сигнал А изменяется, он одновременно инициирует обновление Сигнала Б и Сигнала В. Если система реактивности работает на модели мгновенного проталкивания (Push), Вычисление Г может запуститься дважды: сначала когда обновится Сигнал Б (но в Сигнал В еще будет находиться старое значение), а затем когда обновится Сигнал В. Это приводит к кратковременному несоответствию (глитчу) данных на экране и паразитной нагрузке на процессор.
+Если Сигнал А изменяется, он одновременно инициирует обновление Сигнал Б и Сигнал В. Если система реактивности работает на модели мгновенного проталкивания (Push), Вычисление Г может запуститься дважды: сначала когда обновится Сигнал Б (но в Сигнал В еще будет находиться старое значение), а затем когда обновится Сигнал В. Это приводит к кратковременному несоответствию (глитчу) данных на экране и паразитной нагрузке на процессор.
 
-Angular Signals гарантируют **Glitch-Free** выполнение. Благодаря Push-Pull модели, при изменении Сигнала А вычисляемый сигнал Г не пересчитывается мгновенно. Он лишь получает уведомление о том, что его зависимости стали «грязными». И только во время фазы стягивания (Pull) Angular строит топологический порядок обхода графа и вычисляет итоговое значение Г ровно один раз, когда все его предки (Б и В) гарантированно приняли свои окончательные стабильные состояния.
+Angular Signals гарантируют **Glitch-Free** выполнение. Благодаря Push-Pull модели, при изменении Сигнал А вычисляемый сигнал Г не пересчитывается мгновенно. Он лишь получает уведомление о том, что его зависимости стали «грязными». И только во время фазы стягивания (Pull) Angular строит топологический порядок обхода графа и вычисляет итоговое значение Г ровно один раз, когда все его предки (Б и В) гарантированно приняли свои окончательные стабильные состояния.
 
 ### 2. Физика мемоизации: Как работает версионирование сигналов
 Для обеспечения высокой производительности Angular не выполняет глубокое сравнение возвращаемых объектов внутри `computed`. Вместо этого фреймворк использует внутренний механизм **версионирования (Version Tracking)**.
@@ -216,7 +276,7 @@ Angular Signals гарантируют **Glitch-Free** выполнение. Б�
 Вычисляемый сигнал (Consumer) при первом запуске запоминает версии всех сигналов, которые он считал во время выполнения формулы. При последующем запросе значения `computed` Angular сначала опрашивает зависимости: «Каковы ваши текущие версии?». Если версии всех сигналов-источников совпадают с сохраненными версиями предыдущего расчета, Angular полностью пропускает выполнение формулы вычисления и мгновенно возвращает закэшированное значение.
 
 ### 3. Пошаговый разбор динамического отслеживания (Branch Pruning)
-Давайте детально разберем, как Angular динамически перестраивает граф зависимостей в Шаблоне 3 (Динамическое отслеживание):
+Давайте детально разберем, как Angular динамически перестраивает граф зависимостей в `ConditionalTracker` (Шаблон 3):
 
 1.  **Первый запуск:** Шаблон рендерит `processedValue()`. Функция `computed` запускается.
 2.  **Анализ ветки:** Считывается сигнал `useAlternative()`, значение которого равно `false`.
@@ -227,6 +287,8 @@ Angular Signals гарантируют **Glitch-Free** выполнение. Б�
 7.  **Пересчет:** При чтении `processedValue` формула запускается заново. Теперь код заходит в альтернативную ветку: считывается `useAlternative()` и `sourceB()`.
 8.  **Перестройка графа (Pruning):** Angular видит, что `sourceA` больше не участвовал в расчете. Он полностью удаляет связь с `sourceA` и регистрирует новую связь с `sourceB`. Теперь вычисления будут реагировать только на изменения флага и Источника Б.
 
+---
+
 ### 4. Типичные ошибки и их решение
 
 *   **Ошибка 1: Попытка изменения состояния (Side Effects) внутри computed**
@@ -236,12 +298,12 @@ Angular Signals гарантируют **Glitch-Free** выполнение. Б�
 
 ```typescript
 // ОШИБКА: Запись в сигнал внутри computed строго запрещена
-// const total = computed(() => {
-//   this.logSignal.set('computed started'); 
-//   return this.count() * 2;
-// });
+const total = computed(() => {
+  this.logSignal.set('computed started'); 
+  return this.count() * 2;
+});
 
-// ИСПРАВЛЕНИЕ:computed должен оставаться чистой функцией
+// ИСПРАВЛЕНИЕ: computed должен оставаться чистой функцией
 const total = computed(() => this.count() * 2);
 ```
 
@@ -252,11 +314,11 @@ const total = computed(() => this.count() * 2);
 
 ```typescript
 // ОШИБКА: Синхронный контекст не зарегистрирует count() как зависимость
-// const asyncValue = computed(() => {
-//   let res;
-//   setTimeout(() => { res = this.count() * 2; }, 1000);
-//   return res;
-// });
+const asyncValue = computed(() => {
+  let res;
+  setTimeout(() => { res = this.count() * 2; }, 1000);
+  return res;
+});
 
 // ИСПРАВЛЕНИЕ: Вычисления должны быть строго синхронными
 const syncValue = computed(() => this.count() * 2);
@@ -269,10 +331,18 @@ const syncValue = computed(() => this.count() * 2);
 
 ```typescript
 // ОШИБКА: Изменение multiplier не запустит пересчет computed автоматически
-// multiplier = 2;
-// total = computed(() => this.count() * this.multiplier);
+multiplier = 2;
+total = computed(() => this.count() * this.multiplier);
 
 // ИСПРАВЛЕНИЕ: Все участники вычислений обернуты в сигналы
-public readonly multiplier = signal<number>(2);
-public readonly total = computed(() => this.count() * this.multiplier());
+@Component({
+  selector: 'app-good-total',
+  templateUrl: './good-total.html',
+  styleUrl: './good-total.css'
+})
+export class GoodTotal {
+  public readonly count = signal<number>(5);
+  public readonly multiplier = signal<number>(2);
+  public readonly total = computed(() => this.count() * this.multiplier());
+}
 ```

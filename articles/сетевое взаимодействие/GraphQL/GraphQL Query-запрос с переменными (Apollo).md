@@ -48,7 +48,7 @@ export const appConfig: ApplicationConfig = {
         }),
         // Инициализируем интеллектуальный кэш в памяти
         cache: new InMemoryCache({
-          // Опционально: настраиваем нормализацию кэша (указываем уникальные ключи)
+          // Настраиваем нормализацию кэша (указываем уникальные ключи)
           dataIdFromObject: (object) => object['id'] || null
         })
       };
@@ -150,32 +150,21 @@ export class UserQueryService {
 ### Шаблон 3: Подписка на «живые» изменения кэша в UI-компоненте
 *   **Назначение:** Компонент, отображающий список данных и автоматически перерисовывающийся при изменении переменных или обновлении кэша.
 
+#### 1. Файл логики: `user-list.ts`
 ```typescript
-import { Component, signal, inject, DestroyRef, OnInit } from '@angular/core';
+import { Component, signal, inject, DestroyRef, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { UserQueryService, GraphQLUserItem } from './user-query.service';
 
 @Component({
   selector: 'app-user-list',
-  standalone: true,
-  template: `
-    <div class="list-wrapper">
-      @if (isLoading()) {
-        <p>Загрузка данных из графа...</p>
-      } @else {
-        <ul>
-          @for (user of users(); track user.id) {
-            <li>{{ user.fullName }} — <span>{{ user.role }}</span></li>
-          } @empty {
-            <li>Пользователи не найдены</li>
-          }
-        </ul>
-        <p>Всего записей: {{ totalCount() }}</p>
-      }
-    </div>
-  `
+  // standalone: true опускается по умолчанию начиная с v19
+  imports: [],
+  templateUrl: './user-list.html',
+  styleUrl: './user-list.css',
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class UserListComponent implements OnInit {
+export class UserList implements OnInit { // Имя класса очищено от суффикса Component
   private readonly queryService = inject(UserQueryService);
   private readonly destroyRef = inject(DestroyRef);
 
@@ -216,6 +205,38 @@ export class UserListComponent implements OnInit {
 }
 ```
 
+#### 2. Файл разметки: `user-list.html`
+```html
+<div class="list-wrapper">
+  @if (isLoading()) {
+    <p>Загрузка данных из графа...</p>
+  } @else {
+    <ul class="users">
+      @for (user of users(); track user.id) {
+        <li>{{ user.fullName }} — <span>{{ user.role }}</span></li>
+      } @empty {
+        <li>Пользователи не найдены</li>
+      }
+    </ul>
+    <p>Всего записей: {{ totalCount() }}</p>
+  }
+</div>
+```
+
+#### 3. Файл стилей: `user-list.css`
+```css
+.list-wrapper {
+  padding: 16px;
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.users {
+  margin-bottom: 12px;
+  padding-left: 20px;
+}
+```
+
 ---
 
 ## ГЛУБОКОЕ ПОГРУЖЕНИЕ
@@ -224,7 +245,8 @@ export class UserListComponent implements OnInit {
 Один из самых мощных механизмов в Apollo Client — нормализованный кэш `InMemoryCache`. В отличие от REST, где кэширование обычно происходит по URL-адресу, Apollo кэширует данные атомарно. 
 
 Когда результат GraphQL запроса поступает в клиент, `InMemoryCache` парсит полученное дерево объектов. Он ищет в каждом объекте поля `__typename` (системное имя типа схемы) и уникальный идентификатор (по умолчанию поле `id` или `_id`). По этим полям Apollo создает плоский словарь объектов в памяти:
-$$\text{CacheKey} = \text{\_\_typename} + \text{":"} + \text{id}$$
+
+`CacheKey = __typename + ":" + id`
 
 Если вы используете метод `watchQuery()`, вы подписываетесь на живые обновления этого кэша. Когда в другой части приложения выполняется GraphQL Mutation (например, изменение роли пользователя), которая возвращает измененный объект с тем же ID и обновленным полем `role`, InMemoryCache автоматически находит этот объект в плоской карте, обновляет его свойства, и все активные потоки `watchQuery()`, которые отображали этого пользователя, мгновенно испускают новые значения в UI-компоненты без повторных сетевых запросов.
 
@@ -256,6 +278,8 @@ const query = gql` query { user(name: "${userInput}") { id } } `;
 4.  **Слияние с кэшем:** По возвращении успешного ответа `InMemoryCache` сканирует полученный массив `items`, извлекает идентификаторы и обновляет соответствующие записи в оперативной памяти.
 5.  **Типизированный вывод:** Оператор `map` вырезает внутренний массив `searchUsers` и возвращает его в поток `Observable`, гарантируя соответствие TypeScript-интерфейсу.
 
+---
+
 ### 4. Типичные ошибки и их решение
 
 *   **Ошибка 1: Утечка памяти из-за бесконечной подписки на `watchQuery().valueChanges`**
@@ -264,13 +288,26 @@ const query = gql` query { user(name: "${userInput}") { id } } `;
     *   *Решение:* Обязательно ограничивайте время жизни подписки с помощью оператора `takeUntilDestroyed` (как показано в Шаблоне 3).
 
 ```typescript
-// ОШИБКА: ПотокwatchQuery никогда не завершится, вызывая утечку памяти после уничтожения компонента
-// this.queryService.watchUsers(vars).valueChanges.subscribe(...);
+// ОШИБКА: Поток watchQuery никогда не завершится, вызывая утечку памяти после уничтожения компонента
+ this.queryService.watchUsers(vars).valueChanges.subscribe(...);
 
 // ИСПРАВЛЕНИЕ: Автоматическая отписка по DestroyRef
-this.queryService.watchUsers(vars).valueChanges.pipe(
-  takeUntilDestroyed(this.destroyRef)
-).subscribe(...);
+@Component({
+  selector: 'app-fixed-list',
+  templateUrl: './fixed-list.html',
+  styleUrl: './fixed-list.css'
+})
+export class FixedList implements OnInit {
+  private readonly queryService = inject(UserQueryService);
+  
+  public ngOnInit(): void {
+    this.queryService.watchUsers({ category: 'eng', limit: 10, offset: 0 })
+      .valueChanges
+      .pipe(
+        takeUntilDestroyed() // Декларативно отписываемся при уничтожении компонента
+      ).subscribe();
+  }
+}
 ```
 
 *   **Ошибка 2: Нарушение консистентности кэша при отсутствии поля `id` в графе запроса**
@@ -278,26 +315,18 @@ this.queryService.watchUsers(vars).valueChanges.pipe(
     *   *Физика процесса:* Разработчик для уменьшения веса сетевого ответа не запросил поле `id` в GraphQL-запросе: `searchUsers { items { fullName role } }`. Так как в возвращенном графе нет идентификатора, Apollo `InMemoryCache` не может сопоставить полученные объекты с плоской картой нормализации и кэширует их как анонимные вложенные сущности. Любые последующие мутации этих объектов по ID не приведут к обновлению UI.
     *   *Решение:* Всегда запрашивайте уникальный идентификатор `id` (или настроенный кастомный ключ) для каждого типа сущностей в любом GraphQL Query.
 
-```typescript
-// ОШИБКА: Кэш не сможет нормализовать данные без ID
-// items { fullName email }
-
-// ИСПРАВЛЕНИЕ: ID присутствует во всех запросах схемы
-items { id fullName email }
-```
-
 *   **Ошибка 3: Ошибки рантайма из-за отсутствия типизации переменных**
     *   *Симптомы:* Запрос падает с сетевой ошибкой `GraphQL Validation Error` на этапе парсинга параметров сервером.
-    *   *Физика процесса:* Разработчик передал числовой параметр в виде строкового литерала (например, `"5"` вместо `5`), либо пропустил обязательное поле. Так как TypeScript по умолчанию не проверяет соответствие типов аргументов внутри сырой строки `gql`, без явного указания типов дженерика в `apollo.query<T, V>` компилятор пропустит эту ошибку.
+    *   *Физика процесса:* Разработчик передал числовой параметр в виде строкового литерала (например, `"10"` вместо `10`), либо пропустил обязательное поле. Так как TypeScript по умолчанию не проверяет соответствие типов аргументов внутри сырой строки `gql`, без явного указания типов дженерика в `apollo.query<T, V>` компилятор пропустит эту ошибку.
     *   *Решение:* Всегда явно передавайте интерфейс переменных в качестве второго параметра дженерика при вызове методов Apollo.
 
 ```typescript
 // ОШИБКА: Нет проверки типов переменных на этапе компиляции
-// this.apollo.query({ query: MY_QUERY, variables: { limit: "10" } });
+ this.apollo.query({ query: MY_QUERY, variables: { limit: "10" } });
 
 // ИСПРАВЛЕНИЕ: Строгая типизация запроса и переменных через дженерики
-this.apollo.query<MyResponse, MyVariables>({ 
-  query: MY_QUERY, 
-  variables: { limit: 10 } 
-});
+ this.apollo.query<MyResponse, MyVariables>({ 
+   query: MY_QUERY, 
+   variables: { limit: 10 } 
+ });
 ```

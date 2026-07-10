@@ -23,29 +23,55 @@ status: "completed"
 ### Шаблон 1: InjectionToken для сопряжения интерфейса (Dependency Inversion)
 *   **Назначение:** Создание абстрактного контракта (интерфейса) взаимодействия с сервером и привязка его к токену для возможности динамической подмены реализации.
 
+#### 1. Файл токена и интерфейса: `data-service.token.ts`
 ```typescript
-import { InjectionToken, inject } from '@angular/core';
+import { InjectionToken } from '@angular/core';
 import { Observable } from 'rxjs';
 
-// 1. Описываем чистый TypeScript-интерфейс (контракт)
+// Описываем чистый TypeScript-интерфейс (контракт)
 export interface DataService {
   fetchRecords(): Observable<string[]>;
 }
 
-// 2. Создаем уникальный InjectionToken, типизированный интерфейсом.
+// Создаем уникальный InjectionToken, типизированный интерфейсом.
 // Строковый дескриптор в конструкторе нужен исключительно для удобства отладки в логах
 export const DATA_SERVICE_TOKEN = new InjectionToken<DataService>('DATA_SERVICE_TOKEN');
+```
 
-// Пример использования токена в standalone-компоненте
+#### 2. Файл логики: `data-list.ts`
+```typescript
+import { Component, inject, ChangeDetectionStrategy } from '@angular/core';
+import { DATA_SERVICE_TOKEN } from './data-service.token';
+
 @Component({
   selector: 'app-data-list',
-  standalone: true,
-  template: `...`
+  // Шаблон вынесен во внешний HTML-файл
+  templateUrl: './data-list.html',
+  // Стили вынесены во внешний CSS-файл
+  styleUrl: './data-list.css',
+  // OnPush оптимизирует CD-циклы при получении реактивных данных
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class DataListComponent {
+export class DataList {
   // Внедряем службу по её токену. 
   // Нам не важно, какая именно реализация будет подставлена в app.config (Mock или Http)
-  private readonly dataService = inject(DATA_SERVICE_TOKEN);
+  protected readonly dataService = inject(DATA_SERVICE_TOKEN);
+}
+```
+
+#### 3. Файл разметки: `data-list.html`
+```html
+<div class="list-container">
+  <p>Реактивный список данных инициализирован</p>
+</div>
+```
+
+#### 4. Файл стилей: `data-list.css`
+```css
+.list-container {
+  padding: 16px;
+  background-color: var(--bg-secondary);
+  border-radius: 8px;
 }
 ```
 
@@ -54,6 +80,7 @@ export class DataListComponent {
 ### Шаблон 2: Обертывание браузерного `localStorage` для SSR-совместимости
 *   **Назначение:** Безопасное внедрение глобального хранилища `localStorage` с проверкой платформы, исключающее падение приложения при серверном рендеринге (SSR).
 
+#### 1. Файл токена: `local-storage.token.ts`
 ```typescript
 import { InjectionToken, inject, PLATFORM_ID } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
@@ -81,13 +108,20 @@ export const LOCAL_STORAGE_TOKEN = new InjectionToken<Storage>('LOCAL_STORAGE_TO
     } as unknown as Storage;
   }
 });
+```
+
+#### 2. Файл логики: `user-settings.ts`
+```typescript
+import { Component, inject, ChangeDetectionStrategy } from '@angular/core';
+import { LOCAL_STORAGE_TOKEN } from './local-storage.token';
 
 @Component({
   selector: 'app-user-settings',
-  standalone: true,
-  template: `...`
+  templateUrl: './user-settings.html',
+  styleUrl: './user-settings.css',
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class UserSettingsComponent {
+export class UserSettings {
   // Внедряем localStorage без прямого обращения к глобальной переменной window
   private readonly storage = inject(LOCAL_STORAGE_TOKEN);
 
@@ -97,11 +131,27 @@ export class UserSettingsComponent {
 }
 ```
 
+#### 3. Файл разметки: `user-settings.html`
+```html
+<div class="settings-box">
+  <button (click)="saveTheme('dark-theme')">Сохранить темную тему</button>
+</div>
+```
+
+#### 4. Файл стилей: `user-settings.css`
+```css
+.settings-box {
+  display: flex;
+  gap: 8px;
+}
+```
+
 ---
 
 ### Шаблон 3: Токен конфигурации с дефолтной фабрикой
 *   **Назначение:** Описание токена конфигурации, который автоматически предоставляет дефолтные настройки, если в приложении не был предоставлен кастомный конфиг.
 
+#### 1. Файл токена: `app-feature-config.ts`
 ```typescript
 import { InjectionToken } from '@angular/core';
 
@@ -112,7 +162,7 @@ export interface AppFeatureConfig {
 
 // Создаем токен со встроенной фабричной инициализацией по умолчанию
 export const APP_FEATURE_CONFIG = new InjectionToken<AppFeatureConfig>('APP_FEATURE_CONFIG', {
-  providedIn: 'root',
+  providedIn: 'root', // Глобальная область видимости
   factory: () => ({
     // Дефолтные настройки, которые будут применены "из коробки"
     enableSso: false,
@@ -127,7 +177,7 @@ export const APP_FEATURE_CONFIG = new InjectionToken<AppFeatureConfig>('APP_FEAT
 
 ### 1. Проблема стирания типов (Type Erasure) и физика токенов
 Когда TypeScript компилирует файлы в JavaScript, происходит процесс очистки типов (Type Erasure). Все интерфейсы полностью исчезают из финального кода.
-Рассмотрим разницу:
+Разсмотрим разницу:
 *   **Класс:** `class MyClass {}` компилируется в JavaScript-функцию `function MyClass() {}`. Это физический объект в памяти, на который можно сослаться в рантайме.
 *   **Интерфейс:** `interface MyInterface {}` компилируется в абсолютно пустую строку. Ссылаться на него в JS-коде невозможно.
 
@@ -161,7 +211,15 @@ export const APP_FEATURE_CONFIG = new InjectionToken<AppFeatureConfig>('APP_FEAT
 // const service = inject(DataService); // ! Ошибка: 'DataService' only refers to a type, but is being used as a value here.
 
 // ХОРОШО (Использование InjectionToken)
-const service = inject(DATA_SERVICE_TOKEN); // Безопасно
+@Component({
+  selector: 'app-fixed-data',
+  templateUrl: './fixed-data.html',
+  styleUrl: './fixed-data.css'
+})
+export class FixedData {
+  // Использование физического токена гарантирует успешное внедрение
+  protected readonly service = inject(DATA_SERVICE_TOKEN);
+}
 ```
 
 *   **Ошибка 2: Использование строковых токенов (String Tokens) и коллизии имен**

@@ -19,22 +19,20 @@ status: "completed"
 ## ПРАКТИЧЕСКИЕ ШАБЛОНЫ ДЛЯ КОПИРОВАНИЯ
 
 ### Шаблон 1: Активация Zoneless-режима в `app.config.ts`
-*   **Назначение:** Глобальное отключение `zone.js` на уровне конфигурации современного автономного (Standalone) приложения.
+*   **Назначение:** Глобальное отключение `zone.js` на уровне конфигурации современного автономного приложения.
 
 ```typescript
-import { ApplicationConfig, provideZoneChangeDetection, provideExperimentalZonelessChangeDetection } from '@angular/core';
+import { ApplicationConfig, provideExperimentalZonelessChangeDetection } from '@angular/core';
 import { provideRouter } from '@angular/router';
 import { routes } from './app.routes';
 
 export const appConfig: ApplicationConfig = {
   providers: [
-    // УДАЛЯЕМ старый провайдер provideZoneChangeDetection()
-    // provideZoneChangeDetection({ eventCoalescing: true }),
-
     // АКТИВИРУЕМ современный Zoneless-режим.
     // Это сообщает ядру Angular больше не ожидать сигналов от библиотеки zone.js
     provideExperimentalZonelessChangeDetection(),
     
+    // Регистрируем глобальные маршруты
     provideRouter(routes)
   ]
 };
@@ -43,60 +41,79 @@ export const appConfig: ApplicationConfig = {
 ---
 
 ### Шаблон 2: Строго реактивный Zoneless-компонент на Сигналах
-*   **Назначение:** Описание компонента, который работает со 100% производительностью в Zoneless-режиме за счет использования Сигналов для вывода данных на экран.
+*   **Назначение:** Описание компонента, который работает со стабильной производительностью в Zoneless-режиме за счет использования Сигналов для вывода данных на экран.
 
+#### 1. Файл логики: `reactive-zoneless-card.ts`
 ```typescript
-import { Component, signal } from '@angular/core';
+import { Component, ChangeDetectionStrategy, signal } from '@angular/core';
 
 @Component({
   selector: 'app-reactive-zoneless-card',
-  standalone: true,
-  template: `
-    <div class="card">
-      <!-- Сигналы гарантируют мгновенное точечное обновление шаблона в Zoneless-режиме -->
-      <p>Локальный счетчик: <b>{{ clickCount() }}</b></p>
-      <button (click)="increment()">Инкремент</button>
-    </div>
-  `
+  // template: Шаблон вынесен в отдельный HTML-файл согласно стандартам
+  templateUrl: './reactive-zoneless-card.html',
+  // styles: Стили вынесены в отдельный CSS-файл
+  styleUrl: './reactive-zoneless-card.css',
+  // OnPush гарантирует, что проверка будет происходить только при изменении сигналов
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class ReactiveZonelessCardComponent {
+export class ReactiveZonelessCard {
+  // Инициализируем реактивный сигнал со значением 0
   public readonly clickCount = signal<number>(0);
 
   public increment(): void {
     // Вызов .update() инкрементирует значение, сигнал помечает этот компонент dirty.
     // Планировщик Angular мгновенно перерисует этот узел DOM на следующем микрошаге
-    this.clickCount.update((c) => current + 1);
+    this.clickCount.update((current) => current + 1);
   }
+}
+```
+
+#### 2. Файл разметки: `reactive-zoneless-card.html`
+```html
+<div class="card">
+  <!-- Сигналы гарантируют мгновенное точечное обновление шаблона в Zoneless-режиме -->
+  <p>Локальный счетчик: <b>{{ clickCount() }}</b></p>
+  <button (click)="increment()">Инкремент</button>
+</div>
+```
+
+#### 3. Файл стилей: `reactive-zoneless-card.css`
+```css
+.card {
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background-color: var(--bg-secondary);
 }
 ```
 
 ---
 
 ### Шаблон 3: Безопасная интеграция нереактивных легаси-сервисов в Zoneless
-*   **Назначение:** Явное ручное информирование планировщика Angular о необходимости запустить проверку изменений при получении асинхронных данных из старых сторонних библиотек, которые не используют Сигналы.
+*   **Назначение:** Явное ручное информирование планировщика Angular о необходимости запустить проверку изменений при получении асинхронных данных из старых сторонних библиотек, которые не используют Сигналы, с гарантированной очисткой таймеров.
 
+#### 1. Файл логики: `legacy-integration.ts`
 ```typescript
-import { Component, inject, ChangeDetectorRef, OnInit, signal } from '@angular/core';
+import { Component, inject, ChangeDetectorRef, OnInit, DestroyRef, ChangeDetectionStrategy } from '@angular/core';
 
 @Component({
   selector: 'app-legacy-integration',
-  standalone: true,
-  template: `
-    <div class="box">
-      <!-- Обычное свойство класса, не обернутое в сигнал -->
-      <p>Статус из легаси сокета: <b>{{ legacyStatus }}</b></p>
-    </div>
-  `
+  templateUrl: './legacy-integration.html',
+  styleUrl: './legacy-integration.css',
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class LegacyIntegrationComponent implements OnInit {
+export class LegacyIntegration implements OnInit {
   // Внедряем службу управления проверкой изменений текущего компонента
   private readonly cdr = inject(ChangeDetectorRef);
+  
+  // Внедряем DestroyRef для предотвращения утечек памяти при уничтожении интервала
+  private readonly destroyRef = inject(DestroyRef);
 
   public legacyStatus: string = 'connecting';
 
   public ngOnInit(): void {
     // Имитируем старый асинхронный сокет-сервер
-    setInterval(() => {
+    const intervalId = setInterval(() => {
       this.legacyStatus = 'received_data_at_' + Date.now();
 
       // В Zoneless-режиме изменение обычной переменной класса "legacyStatus" 
@@ -104,7 +121,28 @@ export class LegacyIntegrationComponent implements OnInit {
       // Вызов markForCheck() принудительно помечает этот компонент dirty для планировщика
       this.cdr.markForCheck();
     }, 5000);
+
+    // Обязательно очищаем интервал при уничтожении компонента в Zoneless-окружении
+    this.destroyRef.onDestroy(() => {
+      clearInterval(intervalId);
+    });
   }
+}
+```
+
+#### 2. Файл разметки: `legacy-integration.html`
+```html
+<div class="box">
+  <!-- Обычное свойство класса, не обернутое в сигнал -->
+  <p>Статус из легаси сокета: <b>{{ legacyStatus }}</b></p>
+</div>
+```
+
+#### 3. Файл стилей: `legacy-integration.css`
+```css
+.box {
+  padding: 12px;
+  border-left: 4px solid var(--accent);
 }
 ```
 
@@ -134,16 +172,16 @@ export class LegacyIntegrationComponent implements OnInit {
 Благодаря этому количество пустых, паразитных циклов проверки изменений сокращается на 99%, а FPS приложения становится стабильным.
 
 ### 3. Пошаговый разбор выполнения шаблона 2 в Zoneless-режиме
-1.  **Инициализация:** Приложение запускается без `zone.js`. Шаблон `ReactiveZonelessCardComponent` рендерится один раз, регистрируя зависимость от сигнала `clickCount()`.
+1.  **Инициализация:** Приложение запускается без `zone.js`. Шаблон `ReactiveZonelessCard` рендерится один раз, регистрируя зависимость от сигнала `clickCount()`.
 2.  **Клик пользователя:** Пользователь нажимает на кнопку "Инкремент". Нативное браузерное событие `click` перехватывается стандартным образом (без участия `zone.js`).
 3.  **Изменение значения:** Выполняется метод `this.clickCount.update(...)`. Значение сигнала меняется.
-4.  ** dirty-сигнал:** Сигнал `clickCount` отправляет dirty-уведомление вверх к инжектору компонента `ReactiveZonelessCardComponent`. Компонент помечается как `dirty`.
+4.  **dirty-сигнал:** Сигнал `clickCount` отправляет dirty-уведомление вверх к инжектору компонента `ReactiveZonelessCard`. Компонент помечается как `dirty`.
 5.  **Планирование:** Планировщик Angular ставит микрозадачу CD в очередь событий браузера.
-6.  **Рендеринг:** Синхронный стек выполнения клика завершается. Браузер переходит к очереди микрозадач. Выполняется CD планировщика: он видит, что `ReactiveZonelessCardComponent` помечен как `dirty`, заходит в его шаблон, считывает новое значение сигнала `clickCount()` и точечно перерисовывает число на экране.
+6.  **Рендеринг:** Синхронный стек выполнения клика завершается. Браузер переходит к очереди микрозадач. Выполняется CD планировщика: он видит, что `ReactiveZonelessCard` помечен как `dirty`, заходит в его шаблон, считывает новое значение сигнала `clickCount()` и точечно перерисовывает число на экране.
 
 ---
 
-### 5. Типичные ошибки и их решение
+### 4. Типичные ошибки и их решение
 
 *   **Ошибка 1: Обычные (не-сигнальные) свойства класса не обновляются на экране в Zoneless**
     *   *Симптомы:* Метод класса успешно изменяет переменную (например, `this.userName = 'Alex'`), но текст на экране упрямо остается старым.
@@ -151,7 +189,7 @@ export class LegacyIntegrationComponent implements OnInit {
     *   *Решение:* Оборачивайте любые свойства класса, участвующие в рендеринге шаблона, в реактивные Сигналы (`signal`), либо вручную вызывайте `ChangeDetectorRef.markForCheck()` при изменении обычных переменных (как показано в Шаблоне 3).
 
 ```typescript
-// ПЛОХО (В Zoneless-режиме изменение свойстваuserName никогда не отобразится в HTML)
+// ПЛОХО (В Zoneless-режиме изменение свойства userName никогда не отобразится в HTML)
 // userName = 'Ivan';
 // change() { this.userName = 'Alex'; }
 

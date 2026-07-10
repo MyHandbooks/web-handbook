@@ -8,7 +8,7 @@ status: "completed"
 
 ## БЫСТРЫЙ СТАРТ
 
-*   **Standalone-компонент** — независимый и самодостаточный кирпичик пользовательского интерфейса, у которого свойство `standalone` в декораторе `@Component` выставлено в значение `true`. Он явно описывает все свои зависимости (компоненты, директивы, пайпы) в массиве `imports`, что полностью устраняет потребность во внешних модулях Angular (`NgModule`).
+*   **Standalone-компонент** — независимый и самодостаточный кирпичик пользовательского интерфейса, у которого свойство `standalone` больше не требуется писать явно (начиная с Angular 19+ все компоненты по умолчанию являются standalone). Он явно описывает все свои зависимости (компоненты, директивы, пайпы) в массиве `imports`, что полностью устраняет потребность во внешних модулях Angular (`NgModule`).
 *   **Локальный контекст компиляции:** Каждый standalone-компонент создает замкнутую и изолированную область видимости. Компилятор Ivy (`ngtsc`) компилирует шаблон компонента, опираясь исключительно на импорты, указанные внутри декоратора.
 *   **Правила использования:**
     *   **Используйте:** Для всех создаваемых компонентов, директив и пайпов во всех новых проектах на Angular для обеспечения лучшей модульности, легкой ленивой загрузки и оптимизации размера бандла.
@@ -21,6 +21,7 @@ status: "completed"
 ### Шаблон 1: Базовый автономный компонент с функциональным DI и Сигналами
 *   **Назначение:** Описание базовой структуры автономного компонента с внедрением сервиса через `inject()`, реактивными переменными и явным импортом стандартных пайпов.
 
+#### 1. Файл логики: `base-standalone.ts`
 ```typescript
 import { Component, ChangeDetectionStrategy, inject, signal, computed } from '@angular/core';
 import { DatePipe, UpperCasePipe } from '@angular/common';
@@ -28,29 +29,16 @@ import { LoggingService } from './services/logging.service';
 
 @Component({
   selector: 'app-base-standalone',
-  standalone: true, // Включает автономный режим, отвязывая компонент от классических NgModule
+  // standalone: true опускается по умолчанию начиная с v19
   imports: [
     DatePipe,       // Явный импорт пайпа для форматирования даты в шаблоне
     UpperCasePipe   // Явный импорт пайпа для приведения текста к верхнему регистру
   ],
-  template: `
-    <div class="card">
-      <h2>{{ formattedTitle() }}</h2>
-      <p>Последнее обновление: {{ lastUpdated() | date:'mediumTime' }}</p>
-      <button (click)="updateState()">Обновить состояние</button>
-    </div>
-  `,
-  styles: [`
-    .card {
-      border: 1px solid var(--border);
-      padding: 16px;
-      border-radius: 8px;
-      background-color: var(--bg-secondary);
-    }
-  `],
+  templateUrl: './base-standalone.html',
+  styleUrl: './base-standalone.css',
   changeDetection: ChangeDetectionStrategy.OnPush // Оптимальная OnPush-стратегия для работы с иммутабельными данными и Сигналами
 })
-export class BaseStandaloneComponent {
+export class BaseStandalone { // Класс переименован согласно стандартам без суффикса Component
   // Внедрение зависимостей через современную функцию inject() вне конструктора
   private readonly logger = inject(LoggingService);
 
@@ -74,41 +62,66 @@ export class BaseStandaloneComponent {
 }
 ```
 
+#### 2. Файл разметки: `base-standalone.html`
+```html
+<div class="card">
+  <h2>{{ formattedTitle() }}</h2>
+  <p>Последнее обновление: {{ lastUpdated() | date:'mediumTime' }}</p>
+  <button (click)="updateState()">Обновить состояние</button>
+</div>
+```
+
+#### 3. Файл стилей: `base-standalone.css`
+```css
+.card {
+  border: 1px solid var(--border);
+  padding: 16px;
+  border-radius: 8px;
+  background-color: var(--bg-secondary);
+}
+```
+
 ---
 
 ### Шаблон 2: Standalone-компонент с изолированными локальными провайдерами (ElementInjector)
 *   **Назначение:** Создание компонента с локальным временем жизни службы, которая создается заново для каждого экземпляра и уничтожается вместе с ним.
 
+#### 1. Файл логики: `scoped-standalone.ts`
 ```typescript
 import { Component, ChangeDetectionStrategy, inject, signal } from '@angular/core';
 import { LocalDataService } from './services/local-data.service';
 
 @Component({
   selector: 'app-scoped-standalone',
-  standalone: true,
   imports: [], // Нет внешних зависимостей в шаблоне, массив импортов пуст
   providers: [
     LocalDataService // Изолированный провайдер уровня компонента (создается новый экземпляр для каждого тега)
   ],
-  template: `
-    <div class="scoped-container">
-      <p>Локальный идентификатор сессии: {{ sessionId() }}</p>
-    </div>
-  `,
-  styles: [`
-    .scoped-container {
-      padding: 12px;
-      border-left: 4px solid var(--accent);
-    }
-  `],
+  templateUrl: './scoped-standalone.html',
+  styleUrl: './scoped-standalone.css',
   changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class ScopedStandaloneComponent {
+export class ScopedStandalone {
   // Внедряем службу, которая изолирована на уровне ElementInjector этого компонента
   private readonly dataService = inject(LocalDataService);
 
   // Считываем реактивное значение из локального сервиса
   readonly sessionId = signal<string>(this.dataService.getUniqueSessionId());
+}
+```
+
+#### 2. Файл разметки: `scoped-standalone.html`
+```html
+<div class="scoped-container">
+  <p>Локальный идентификатор сессии: {{ sessionId() }}</p>
+</div>
+```
+
+#### 3. Файл стилей: `scoped-standalone.css`
+```css
+.scoped-container {
+  padding: 12px;
+  border-left: 4px solid var(--accent);
 }
 ```
 
@@ -131,8 +144,8 @@ export class ScopedStandaloneComponent {
 2.  **ElementInjector:** Создается на уровне DOM-элемента каждого компонента. Когда мы объявляем службу в массиве `providers` декоратора `@Component`, она регистрируется в `ElementInjector`. Экземпляр этой службы будет уничтожен автоматически, когда компонент удаляется из DOM-дерева.
 
 ### 3. Пошаговый разбор жизненного цикла и инициализации шаблона
-При инициализации `BaseStandaloneComponent` происходят следующие шаги:
-1.  **Регистрация метаданных:** Компилятор считывает флаг `standalone: true` и проверяет наличие директив, указанных в `imports`.
+При инициализации `BaseStandalone` происходят следующие шаги:
+1.  **Регистрация метаданных:** Компилятор считывает конфигурацию по умолчанию как Standalone и проверяет наличие директив, указанных в `imports`.
 2.  **Разрешение DI:** Вызывается функция `inject(LoggingService)`. Поиск провайдера начинается с текущего `ElementInjector`, проходит вверх по DOM-дереву и завершается на уровне `EnvironmentInjector` (где служба зарегистрирована через `{ providedIn: 'root' }`).
 3.  **Инициализация реактивного графа:** Создаются реактивные узлы для сигналов `title` и `lastUpdated`. Компилятор строит зависимость для `formattedTitle`. При первом чтении значения `formattedTitle` в шаблоне Angular подписывается на изменения сигнала `title`.
 4.  **Рендеринг:** Пайпы `DatePipe` и `UpperCasePipe` создаются локально внутри фабрики рендеринга Ivy и применяются к интерполяционным переменным.
@@ -147,20 +160,22 @@ export class ScopedStandaloneComponent {
 ```typescript
 // ОШИБКА: Использование [ngClass] в шаблоне вызовет сбой компиляции, если NgClass не импортирован
 @Component({
-  standalone: true,
-  template: `<div [ngClass]="{ active: isActive() }">Контент</div>`
+  selector: 'app-faulty',
+  templateUrl: './faulty.html',
+  styleUrl: './faulty.css'
 })
-export class FaultyComponent {}
+export class Faulty {}
 
 // ИСПРАВЛЕНИЕ: Добавление NgClass в массив imports
 import { NgClass } from '@angular/common';
 
 @Component({
-  standalone: true,
+  selector: 'app-fixed',
   imports: [NgClass],
-  template: `<div [ngClass]="{ active: isActive() }">Контент</div>`
+  templateUrl: './fixed.html',
+  styleUrl: './fixed.css'
 })
-export class FixedComponent {}
+export class Fixed {}
 ```
 
 *   **Ошибка 2: Циклические зависимости при взаимном импорте (Circular Dependency)**
@@ -176,11 +191,11 @@ export class FixedComponent {}
 // ИСПРАВЛЕНИЕ: Перевод одного из компонентов на управление через проекцию разметки (ng-content)
 // component-a.ts: imports: [] (принимает контент динамически)
 @Component({
-  selector: 'app-component-a',
-  standalone: true,
-  template: `<div class="wrapper"><ng-content></ng-content></div>`
+  selector: 'app-a',
+  templateUrl: './a.html',
+  styleUrl: './a.css'
 })
-export class ComponentA {}
+export class A {}
 ```
 
 *   **Ошибка 3: Утечка состояния синглтона при ошибочной регистрации в providers компонента**
@@ -191,10 +206,12 @@ export class ComponentA {}
 ```typescript
 // ОШИБКА: Глобальная служба регистрируется локально, создавая дубликат экземпляра
 @Component({
-  standalone: true,
+  selector: 'app-sidebar',
+  templateUrl: './sidebar.html',
+  styleUrl: './sidebar.css',
   providers: [GlobalStateService] 
 })
-export class SidebarComponent {}
+export class Sidebar {}
 
 // ИСПРАВЛЕНИЕ: Регистрация только на корневом уровне
 @Injectable({

@@ -1,4 +1,5 @@
 ---
+path: "articles/сетевое взаимодействие/GraphQL/GraphQL Mutation-запрос (Apollo).md"
 tags: [angular, сетевое-взаимодействие, graphql]
 related: ["[[GraphQL Query-запрос с переменными (Apollo).md]]", "[[Универсальные обобщения (Generics).md]]"]
 status: "completed"
@@ -185,46 +186,21 @@ export class UserCreateService {
 ### Шаблон 3: Обработка состояний мутации в UI-компоненте с использованием Сигналов
 *   **Назначение:** Компонент формы изменения данных, отображающий спиннер загрузки, выводящий ошибки валидации сервера и блокирующий кнопку отправки на время мутации.
 
+#### 1. Файл логики: `user-edit-form.ts`
 ```typescript
-import { Component, signal, inject, DestroyRef } from '@angular/core';
+import { Component, signal, inject, DestroyRef, ChangeDetectionStrategy } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { UserMutationService, UpdateUserInput } from './user-mutation.service';
 
 @Component({
   selector: 'app-user-edit-form',
-  standalone: true,
-  template: `
-    <div class="form-card">
-      <h3>Редактирование профиля</h3>
-      
-      <!-- Поле ввода имени -->
-      <label for="fullName">Полное имя:</label>
-      <input type="text" id="fullName" #nameInput value="Архитектор Фронтенда" />
-
-      <!-- Кнопка отправки формы -->
-      <button 
-        class="action-btn" 
-        [disabled]="isPending()" 
-        (click)="saveChanges(nameInput.value)"
-      >
-        @if (isPending()) {
-          Сохранение в облаке...
-        } @else {
-          Применить изменения
-        }
-      </button>
-
-      <!-- Отображение ошибок или успеха -->
-      @if (errorMessage()) {
-        <p class="error-msg">Ошибка: {{ errorMessage() }}</p>
-      }
-      @if (isSuccess()) {
-        <p class="success-msg">Изменения успешно применены!</p>
-      }
-    </div>
-  `
+  // standalone: true опускается по умолчанию начиная с v19
+  imports: [],
+  templateUrl: './user-edit-form.html',
+  styleUrl: './user-edit-form.css',
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class UserEditFormComponent {
+export class UserEditForm { // Имя класса очищено от суффикса Component
   private readonly mutationService = inject(UserMutationService);
   private readonly destroyRef = inject(DestroyRef);
 
@@ -268,6 +244,79 @@ export class UserEditFormComponent {
 }
 ```
 
+#### 2. Файл разметки: `user-edit-form.html`
+```html
+<div class="form-card">
+  <h3>Редактирование профиля</h3>
+  
+  <label for="fullName">Полное имя:</label>
+  <input type="text" id="fullName" #nameInput value="Архитектор Фронтенда" class="theme-input" />
+
+  <!-- Кнопка отправки формы -->
+  <button 
+    class="action-btn" 
+    [disabled]="isPending()" 
+    (click)="saveChanges(nameInput.value)"
+  >
+    @if (isPending()) {
+      Сохранение в облаке...
+    } @else {
+      Применить изменения
+    }
+  </button>
+
+  <!-- Отображение ошибок или успеха -->
+  @if (errorMessage()) {
+    <p class="error-msg">Ошибка: {{ errorMessage() }}</p>
+  }
+  @if (isSuccess()) {
+    <p class="success-msg">Изменения успешно применены!</p>
+  }
+</div>
+```
+
+#### 3. Файл стилей: `user-edit-form.css`
+```css
+.form-card {
+  padding: 20px;
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  max-width: 400px;
+}
+.theme-input {
+  width: 100%;
+  padding: 8px;
+  background-color: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text-normal);
+  margin: 8px 0 16px;
+}
+.action-btn {
+  width: 100%;
+  padding: 10px;
+  background-color: var(--accent);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 600;
+}
+.action-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.error-msg {
+  color: var(--error-text);
+  margin-top: 10px;
+}
+.success-msg {
+  color: var(--success-text);
+  margin-top: 10px;
+}
+```
+
 ---
 
 ## ГЛУБОКОЕ ПОГРУЖЕНИЕ
@@ -277,9 +326,8 @@ export class UserEditFormComponent {
 
 #### Автоматическое слияние (Auto-merging):
 Работает по умолчанию. Когда вы выполняете мутацию изменения сущности (например, редактирование имени пользователя), сервер возвращает обновленный объект:
-```json
-{ "id": "usr-12", "fullName": "Новое Имя", "__typename": "User" }
-```
+`{ "id": "usr-12", "fullName": "Новое Имя", "__typename": "User" }`
+
 Apollo `InMemoryCache` перехватывает этот ответ, вычисляет уникальный хэш-ключ нормализованного объекта (`User:usr-12`) и мгновенно перезаписывает измененные свойства `fullName` во всех структурах кэша. Все активные GraphQL Queries, которые отображали этого пользователя, автоматически генерируют новые значения для подписчиков.
 
 #### Ручное обновление кэша (Manual cache update):
@@ -301,17 +349,11 @@ Apollo `InMemoryCache` перехватывает этот ответ, вычи�
 
 1.  **Вызов мутации:** Сетевой поток отправляет POST-пакет с телом нового пользователя.
 2.  **Запуск `update`:** После завершения запроса, но до того как поток вернет значение в `.subscribe()`, вызывается коллбэк `update`.
-3.  **Чтение кэша:**
-    ```typescript
-    const cachedData = cache.readQuery({ query: SEARCH_USERS_QUERY, variables: currentListVariables });
-    ```
-    Apollo извлекает из хэш-таблицы кэша структуру данных для списка пользователей, отфильтрованного именно по `currentListVariables`.
+3.  **Чтение кэша:** Apollo извлекает из хэш-таблицы кэша структуру данных для списка пользователей, отфильтрованного именно по `currentListVariables`.
 4.  **Создание иммутабельной копии:** Если данные в кэше существуют, формируется обновленный объект. Мы используем деструктуризацию (spread operator) `items: [data.createUser, ...cachedData.searchUsers.items]` для иммутабельного добавления нового пользователя в начало массива. Прямая мутация массива `cachedData.searchUsers.items.push()` строго запрещена и вызовет сбой работы кэша.
-5.  **Запись в кэш:**
-    ```typescript
-    cache.writeQuery({ ... });
-    ```
-    Обновленный массив записывается обратно в `InMemoryCache`. Все активные компоненты, наблюдающие за списком через `watchQuery()`, немедленно отрисовывают нового пользователя на экране.
+5.  **Запись в кэш:** Обновленный массив записывается обратно в `InMemoryCache`. Все активные компоненты, наблюдающие за списком через `watchQuery()`, немедленно отрисовывают нового пользователя на экране.
+
+---
 
 ### 4. Типичные ошибки и их решение
 
@@ -322,7 +364,7 @@ Apollo `InMemoryCache` перехватывает этот ответ, вычи�
 
 ```typescript
 // ОШИБКА: Изменения на сервере не обновят локальный кэш автоматически
-// mutation { updateUser(input: $input) { fullName role } }
+mutation { updateUser(input: $input) { fullName role } }
 
 // ИСПРАВЛЕНИЕ: ID присутствует в возвращаемом объекте
 mutation { updateUser(input: $input) { id fullName role } }
@@ -335,8 +377,8 @@ mutation { updateUser(input: $input) { id fullName role } }
 
 ```typescript
 // ОШИБКА: Возможен сбой приложения, если cachedData равен null
-// const cachedData = cache.readQuery(...);
-// cache.writeQuery({ ..., data: { items: [..., ...cachedData.items] } });
+const cachedData = cache.readQuery(...);
+cache.writeQuery({ ..., data: { items: [..., ...cachedData.items] } });
 
 // ИСПРАВЛЕНИЕ: Безопасное ветвление логики обновления
 const cachedData = cache.readQuery(...);
@@ -352,7 +394,7 @@ if (cachedData) {
 
 ```typescript
 // ОШИБКА: Блокировка UI при возникновении сетевого или валидационного сбоя
-// this.mutationService.updateUserProfile(payload).subscribe(res => { this.isPending.set(false); });
+this.mutationService.updateUserProfile(payload).subscribe(res => { this.isPending.set(false); });
 
 // ИСПРАВЛЕНИЕ: Сброс флагов загрузки в любом исходе транзакции
 this.mutationService.updateUserProfile(payload).subscribe({

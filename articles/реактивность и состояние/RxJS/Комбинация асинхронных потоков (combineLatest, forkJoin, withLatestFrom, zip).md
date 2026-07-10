@@ -20,10 +20,11 @@ status: "completed"
 ## ПРАКТИЧЕСКИЕ ШАБЛОНЫ ДЛЯ КОПИРОВАНИЯ
 
 ### Шаблон 1: Реактивная многопараметрическая фильтрация (`combineLatest`)
-*   **Назначение:** Автоматический перезапуск поиска товаров на сервере при изменении любого из фильтров: текста поиска, выбранной категории или страницы пагинации.
+*   **Назначение:** Автоматический перезапуск поиска товаров на сервере при изменении любого из фильтров: текста поиска или выбранной категории.
 
+#### 1. Файл логики: `product-search.ts`
 ```typescript
-import { Component, inject, OnInit, signal, DestroyRef } from '@angular/core';
+import { Component, inject, OnInit, signal, DestroyRef, ChangeDetectionStrategy } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
@@ -32,11 +33,15 @@ import { debounceTime, distinctUntilChanged, switchMap, catchError } from 'rxjs/
 
 @Component({
   selector: 'app-product-search',
-  standalone: true,
-  imports: [ReactiveFormsModule],
-  template: `...`
+  // standalone: true опускается по умолчанию начиная с v19
+  imports: [
+    ReactiveFormsModule // Импортируем модуль форм для работы с searchControl
+  ],
+  templateUrl: './product-search.html',
+  styleUrl: './product-search.css',
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class ProductSearchComponent implements OnInit {
+export class ProductSearch implements OnInit { // Имя класса очищено от суффикса Component
   private readonly http = inject(HttpClient);
   private readonly destroyRef = inject(DestroyRef);
 
@@ -68,9 +73,39 @@ export class ProductSearchComponent implements OnInit {
           catchError(() => of([])) // Изолируем ошибки сети
         );
       }),
+      // Гарантируем чистую выгрузку подписок при уничтожении
       takeUntilDestroyed(this.destroyRef)
     ).subscribe((data) => this.results.set(data));
   }
+}
+```
+
+#### 2. Файл разметки: `product-search.html`
+```html
+<div class="search-panel">
+  <input type="text" [formControl]="searchControl" placeholder="Поиск по названию..." class="theme-input" />
+  
+  <ul class="results-list">
+    @for (product of results(); track product) {
+      <li>{{ product }}</li>
+    } @empty {
+      <li>Товары не найдены</li>
+    }
+  </ul>
+</div>
+```
+
+#### 3. Файл стилей: `product-search.css`
+```css
+.search-panel {
+  padding: 16px;
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.results-list {
+  margin-top: 12px;
+  padding-left: 20px;
 }
 ```
 
@@ -116,19 +151,22 @@ export class MetadataService {
 ### Шаблон 3: Прокидывание токена сессии в триггер отправки формы (`withLatestFrom`)
 *   **Назначение:** Добавление актуального значения JWT-токена из Auth-сервиса в тело запроса при клике на кнопку «Сохранить» без постоянного прослушивания изменений токена.
 
+#### 1. Файл логики: `submit-form.ts`
 ```typescript
-import { Component, inject, OnInit, DestroyRef } from '@angular/core';
-import { Subject, fromEvent } from 'rxjs';
-import { withLatestFrom, map, tap } from 'rxjs/operators';
+import { Component, inject, OnInit, DestroyRef, ChangeDetectionStrategy } from '@angular/core';
+import { Subject } from 'rxjs';
+import { withLatestFrom, map } from 'rxjs/operators';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { AuthService } from './auth.service';
 
 @Component({
   selector: 'app-submit-form',
-  standalone: true,
-  template: `<button id="submit-btn">Отправить отчет</button>`
+  imports: [],
+  templateUrl: './submit-form.html',
+  styleUrl: './submit-form.css',
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class SubmitFormComponent implements OnInit {
+export class SubmitForm implements OnInit {
   private readonly auth = inject(AuthService);
   private readonly destroyRef = inject(DestroyRef);
 
@@ -155,6 +193,33 @@ export class SubmitFormComponent implements OnInit {
   public triggerSubmit(): void {
     this.submitClicks$.next();
   }
+
+  private sendSecurePayload(payload: unknown): void {
+    console.log('[Submit] Безопасная отправка пакета:', payload);
+  }
+}
+```
+
+#### 2. Файл разметки: `submit-form.html`
+```html
+<div class="submit-box">
+  <button (click)="triggerSubmit()" class="action-btn">Отправить отчет</button>
+</div>
+```
+
+#### 3. Файл стилей: `submit-form.css`
+```css
+.submit-box {
+  padding: 12px;
+}
+.action-btn {
+  padding: 10px 20px;
+  background-color: var(--accent);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 600;
 }
 ```
 
@@ -162,13 +227,13 @@ export class SubmitFormComponent implements OnInit {
 
 ## ГЛУБОКОЕ ПОГРУЖЕНИЕ
 
-### 1. Ловушка неполной инициализации (The Late Start Trap)
+### 1. Локушка неполной инициализации (The Late Start Trap)
 Распространенный баг при использовании `combineLatest` или `zip` — бесконечное зависание потока в состоянии ожидания. 
 
 *   По спецификации, метод `combineLatest` **обязан дождаться хотя бы одной эмиссии от каждого участника**, прежде чем испустить первое общее значение.
 *   Если у вас есть 5 комбинируемых потоков, и 4 из них испустили значения мгновенно, а 5-й поток является холодным и молчит (или это пустой `Subject`), `combineLatest` будет вечно находиться в режиме ожидания, полностью блокируя выполнение нижележащей цепочки.
 
-Для предотвращения подобных зависаний на "молмящих" потоках всегда используйте оператор `startWith(null)` или задавайте дефолтные стартовые значения.
+Для предотвращения подобных зависаний на "молчащих" потоках всегда используйте оператор `startWith(null)` или задавайте дефолтные стартовые значения.
 
 ### 2. Проблема Diamond Dependency (Глитчи временного состояния)
 В реактивных потоках RxJS существует архитектурная уязвимость — глитчи временного состояния. Представьте ромбовидный граф:
@@ -212,13 +277,21 @@ export class SubmitFormComponent implements OnInit {
 
 ```typescript
 // ПЛОХО (BehaviorSubject никогда не завершится, forkJoin зависнет навсегда)
-return forkJoin([this.http.get('/api'), this.myBehaviorSubject$]);
+// return forkJoin([this.http.get('/api'), this.myBehaviorSubject$]);
 
 // ХОРОШО (take(1) принудительно вызовет complete после первой же эмиссии значения)
-return forkJoin([
-  this.http.get('/api'),
-  this.myBehaviorSubject$.pipe(take(1))
-]);
+@Injectable({ providedIn: 'root' })
+export class SafeMetadataService {
+  private readonly http = inject(HttpClient);
+  private readonly myBehaviorSubject$ = new BehaviorSubject<string>('default');
+
+  public load(): Observable<unknown> {
+    return forkJoin([
+      this.http.get('/api'),
+      this.myBehaviorSubject$.pipe(take(1)) // Успешно вызовет complete
+    ]);
+  }
+}
 ```
 
 *   **Ошибка 2: Смерть всего `forkJoin` при падении одного из запросов**
@@ -228,7 +301,7 @@ return forkJoin([
 
 ```typescript
 // ПЛОХО (Любая сетевая ошибка убьет всю цепочку forkJoin)
-return forkJoin([http.get('/a'), http.get('/b')]);
+// return forkJoin([http.get('/a'), http.get('/b')]);
 
 // ХОРОШО (Ошибка локализована, возвращен безопасный fallback-объект)
 return forkJoin([

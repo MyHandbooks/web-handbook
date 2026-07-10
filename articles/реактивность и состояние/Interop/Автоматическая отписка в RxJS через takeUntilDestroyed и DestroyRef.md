@@ -20,20 +20,23 @@ status: "completed"
 ## ПРАКТИЧЕСКИЕ ШАБЛОНЫ ДЛЯ КОПИРОВАНИЯ
 
 ### Шаблон 1: Авто-отписка внутри конструктора (Контекст внедрения)
-*   **Назначение:** Описание простейшей и самой частой подписки на поток событий внутри конструктора с автоматическим завершением при уходе пользователя с экрана.
+*   **Назначение:** Фоновая периодическая задача внутри конструктора с автоматическим завершением при уходе пользователя с экрана.
 
+#### 1. Файл логики: `auto-unsubscriber.ts`
 ```typescript
-import { Component, inject } from '@angular/core';
+import { Component, inject, ChangeDetectionStrategy } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { interval } from 'rxjs';
 
 @Component({
   selector: 'app-auto-unsubscriber',
-  standalone: true,
-  template: `<p>Компонент фонового мониторинга активен</p>`
+  imports: [], // standalone: true больше не указывается, включен по умолчанию
+  templateUrl: './auto-unsubscriber.html',
+  styleUrl: './auto-unsubscriber.css',
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class AutoUnsubscriberComponent {
+export class AutoUnsubscriber { // Имя класса очищено от суффикса Component
   private readonly http = inject(HttpClient);
 
   constructor() {
@@ -55,22 +58,41 @@ export class AutoUnsubscriberComponent {
 }
 ```
 
+#### 2. Файл разметки: `auto-unsubscriber.html`
+```html
+<div class="monitor-panel">
+  <p>Компонент фонового мониторинга активен</p>
+</div>
+```
+
+#### 3. Файл стилей: `auto-unsubscriber.css`
+```css
+.monitor-panel {
+  padding: 16px;
+  background-color: var(--bg-secondary);
+  border-radius: 8px;
+}
+```
+
 ---
 
 ### Шаблон 2: Авто-отписка внутри ngOnInit (Явная передача DestroyRef)
 *   **Назначение:** Подписка на поток внутри стандартного хука `ngOnInit`. Требует предварительного внедрения `DestroyRef` и его ручной передачи в оператор.
 
+#### 1. Файл логики: `route-watcher.ts`
 ```typescript
-import { Component, inject, OnInit, DestroyRef } from '@angular/core';
+import { Component, inject, OnInit, DestroyRef, ChangeDetectionStrategy } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 
 @Component({
   selector: 'app-route-watcher',
-  standalone: true,
-  template: `<p>Мониторинг параметров роута активен</p>`
+  imports: [],
+  templateUrl: './route-watcher.html',
+  styleUrl: './route-watcher.css',
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class RouteWatcherComponent implements OnInit {
+export class RouteWatcher implements OnInit {
   private readonly route = inject(ActivatedRoute);
   
   // Внедряем глобальную службу DestroyRef текущего компонента
@@ -91,20 +113,38 @@ export class RouteWatcherComponent implements OnInit {
 }
 ```
 
+#### 2. Файл разметки: `route-watcher.html`
+```html
+<div class="route-panel">
+  <p>Мониторинг параметров роута активен</p>
+</div>
+```
+
+#### 3. Файл стилей: `route-watcher.css`
+```css
+.route-panel {
+  padding: 12px;
+  border-left: 4px solid var(--accent);
+}
+```
+
 ---
 
 ### Шаблон 3: Программная очистка ресурсов через DestroyRef.onDestroy
 *   **Назначение:** Регистрация кастомного коллбэка уничтожения для сторонних библиотек, слушателей событий или таймеров без объявления в классе метода `ngOnDestroy`.
 
+#### 1. Файл логики: `canvas-painter.ts`
 ```typescript
-import { Component, inject, ElementRef, OnInit, DestroyRef } from '@angular/core';
+import { Component, inject, ElementRef, OnInit, DestroyRef, ChangeDetectionStrategy } from '@angular/core';
 
 @Component({
   selector: 'app-canvas-painter',
-  standalone: true,
-  template: `<canvas #paintCanvas width="400" height="300"></canvas>`
+  imports: [],
+  templateUrl: './canvas-painter.html',
+  styleUrl: './canvas-painter.css',
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class CanvasPainterComponent implements OnInit {
+export class CanvasPainter implements OnInit {
   private readonly hostElement = inject(ElementRef);
   private readonly destroyRef = inject(DestroyRef);
 
@@ -127,6 +167,22 @@ export class CanvasPainterComponent implements OnInit {
 }
 ```
 
+#### 2. Файл разметки: `canvas-painter.html`
+```html
+<div class="canvas-wrapper">
+  <canvas #paintCanvas width="400" height="300"></canvas>
+</div>
+```
+
+#### 3. Файл стилей: `canvas-painter.css`
+```css
+.canvas-wrapper {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+```
+
 ---
 
 ## ГЛУБОКОЕ ПОГРУЖЕНИЕ
@@ -136,8 +192,12 @@ export class CanvasPainterComponent implements OnInit {
 
 ```typescript
 // УСТАРЕВШИЙ И ГРОМОЗДКИЙ ПОДХОД (BOILERPLATE)
-@Component({...})
-export class OldComponent implements OnInit, OnDestroy {
+@Component({
+  selector: 'app-old',
+  templateUrl: './old.html',
+  styleUrl: './old.css'
+})
+export class Old implements OnInit, OnDestroy {
   private readonly destroy$ = new Subject<void>();
 
   ngOnInit() {
@@ -172,7 +232,7 @@ export class OldComponent implements OnInit, OnDestroy {
 4.  **Связывание с исходным потоком:** Возвращается стандартный RxJS-оператор `takeUntil(destroySubject)`, который и завершает ваш сетевой поток, когда срабатывает триггер.
 
 ### 3. Пошаговый разбор жизненного цикла авто-отписки
-Проследим шаги утилизации потока в `AutoUnsubscriberComponent` (Шаблон 1) при уходе пользователя со страницы:
+Проследим шаги утилизации потока в `AutoUnsubscriber` (Шаблон 1) при уходе пользователя со страницы:
 
 1.  **Создание:** Пользователь заходит на страницу. Конструктор вызывает `takeUntilDestroyed()`. Angular находит `DestroyRef` компонента и регистрирует в нем коллбэк отписки. Поток `interval(5000)` начинает генерировать события каждые 5 секунд.
 2.  **Жизненный цикл:** Пользователь находится на странице, события опроса выполняются штатно.
@@ -201,7 +261,7 @@ return stream$.pipe(
 );
 ```
 
-*   **Ошибка 2: Вызов takeUntilDestroyed() вне Injection Context без аргументов**
+*   **Ошибка 2: Вызов takeUntilDestroyed() вне Injection Context (Методы, хуки)**
     *   *Симптомы:* Ошибка компиляции или рантайм-сбой вида `NG0203: inject() can only be used within an active injection context`.
     *   *Физика процесса:* Разработчик вызвал оператор без параметров внутри обычного метода класса: `loadData() { myStream$.pipe(takeUntilDestroyed()).subscribe(); }`. Так как в этот момент контекст внедрения зависимостей уже закрыт, `takeUntilDestroyed` не может неявно вызвать `inject(DestroyRef)` и падает.
     *   *Решение:* Если вызов происходит вне конструктора или объявления полей класса, обязательно внедрите `DestroyRef` через `inject()` на уровне класса и передайте его в аргументы оператора явно (как в Шаблоне 2).
@@ -211,11 +271,20 @@ return stream$.pipe(
 // public load() { this.data$.pipe(takeUntilDestroyed()).subscribe(); }
 
 // ИСПРАВЛЕНИЕ: Внедрение и явная передача ссылки на DestroyRef
-private readonly destroyRef = inject(DestroyRef);
-public load() {
-  this.data$.pipe(
-    takeUntilDestroyed(this.destroyRef) // Успешно
-  ).subscribe();
+@Component({
+  selector: 'app-fixed-loader',
+  templateUrl: './fixed-loader.html',
+  styleUrl: './fixed-loader.css'
+})
+export class FixedLoader {
+  private readonly destroyRef = inject(DestroyRef);
+  private readonly data$ = new Subject<string>();
+
+  public load(): void {
+    this.data$.pipe(
+      takeUntilDestroyed(this.destroyRef) // Успешно
+    ).subscribe();
+  }
 }
 ```
 

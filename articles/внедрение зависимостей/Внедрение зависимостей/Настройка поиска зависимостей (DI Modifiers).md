@@ -14,7 +14,7 @@ status: "completed"
     *   `{ self: true }` (аналог `@Self()`) — ограничивает область поиска строго текущим Node Injector (инжектором элемента). Поиск по родительским элементам запрещен.
     *   `{ skipSelf: true }` (аналог `@SkipSelf()`) — заставляет Angular проигнорировать локальный Node Injector и начать поиск зависимости сразу с родительского инжектора.
     *   `{ host: true }` (аналог `@Host()`) — ограничивает поиск зависимости пределами хост-элемента текущего компонента (границей его собственного шаблона).
-*   **Используйте их для:** создания отказоустойчивых плагинов, гибких UI-компонентов (аккордеоны, табы, выпадающие списки) и предотвращения бесконечной рекурсии при расширении служб.
+*   **Используйте их для:** создания асинхронных плагинов, гибких UI-компонентов (аккордеоны, табы, выпадающие списки) и предотвращения бесконечной рекурсии при расширении служб.
 *   **Не используйте их:** для стандартных синглтонов с `providedIn: 'root'`. Модификаторы ищут зависимости по локальной иерархии дерева компонентов, поэтому для глобальных синглтонов они в большинстве случаев избыточны.
 
 ---
@@ -24,8 +24,9 @@ status: "completed"
 ### Шаблон 1: Безопасное внедрение необязательной службы (`optional: true`)
 *   **Назначение:** Реализация UI-виджета, который может использовать службу логирования, если она предоставлена в приложении, но продолжает стабильно работать без неё.
 
+#### 1. Файл логики: `action-button.ts`
 ```typescript
-import { Component, inject } from '@angular/core';
+import { Component, inject, ChangeDetectionStrategy } from '@angular/core';
 
 // Абстрактный класс или токен службы логирования (может отсутствовать в некоторых модулях)
 export abstract class LoggerService {
@@ -34,10 +35,11 @@ export abstract class LoggerService {
 
 @Component({
   selector: 'app-action-button',
-  standalone: true,
-  template: `<button (click)="performAction()">Выполнить действие</button>`
+  templateUrl: './action-button.html',
+  styleUrl: './action-button.css',
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class ActionButtonComponent {
+export class ActionButton {
   // Запрашиваем службу логирования с флагом optional. 
   // Если провайдер LoggerService не зарегистрирован в приложении, переменная примет значение null
   private readonly logger = inject(LoggerService, { optional: true });
@@ -56,31 +58,63 @@ export class ActionButtonComponent {
 }
 ```
 
+#### 2. Файл разметки: `action-button.html`
+```html
+<button (click)="performAction()">Выполнить действие</button>
+```
+
+#### 3. Файл стилей: `action-button.css`
+```css
+button {
+  padding: 8px 16px;
+  background-color: var(--accent);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 600;
+}
+```
+
 ---
 
 ### Шаблон 2: Локальная изоляция поиска (`self: true`)
 *   **Назначение:** Гарантия того, что компонент работает строго со своей изолированной копией службы (например, локальным менеджером состояния таба) и не может случайно переиспользовать родительский провайдер.
 
+#### 1. Файл логики: `single-tab.ts`
 ```typescript
-import { Component, inject } from '@angular/core';
+import { Component, inject, ChangeDetectionStrategy } from '@angular/core';
 import { TabStateManager } from './tab-state-manager.service';
 
 @Component({
   selector: 'app-single-tab',
-  standalone: true,
   // Регистрируем службу локально. Это обязательное условие при использовании флага self
   providers: [TabStateManager],
-  template: `
-    <div class="tab-content">
-      <span>Активный таб: {{ tabManager.isActive() }}</span>
-    </div>
-  `
+  templateUrl: './single-tab.html',
+  styleUrl: './single-tab.css',
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class SingleTabComponent {
+export class SingleTab {
   // Требуем от Angular искать TabStateManager СТРОГО во внутреннем инжекторе этого компонента.
   // Если по ошибке удалить TabStateManager из массива providers выше, Angular выдаст ошибку сборки,
   // не пытаясь взять родительский менеджер табов.
   protected readonly tabManager = inject(TabStateManager, { self: true });
+}
+```
+
+#### 2. Файл разметки: `single-tab.html`
+```html
+<div class="tab-content">
+  <span>Активный таб: {{ tabManager.isActive() }}</span>
+</div>
+```
+
+#### 3. Файл стилей: `single-tab.css`
+```css
+.tab-content {
+  padding: 12px;
+  border: 1px solid var(--border);
+  background-color: var(--bg-secondary);
 }
 ```
 
@@ -89,28 +123,25 @@ export class SingleTabComponent {
 ### Шаблон 3: Обход локального инжектора в древовидных структурах (`skipSelf: true`)
 *   **Назначение:** Создание древовидного компонента (например, вложенные папки или раскрывающиеся меню), где дочерний узел должен зарегистрировать себя в родительском узле того же типа, минуя свой собственный провайдер.
 
+#### 1. Файл логики: `tree-node.ts`
 ```typescript
-import { Component, inject, OnInit, forwardRef } from '@angular/core';
+import { Component, inject, OnInit, forwardRef, ChangeDetectionStrategy } from '@angular/core';
 
 @Component({
   selector: 'app-tree-node',
-  standalone: true,
-  // Каждый узел дерева регистрирует себя как провайдер TreeNodeComponent
+  // Каждый узел дерева регистрирует себя как провайдер TreeNode
   providers: [
-    { provide: TreeNodeComponent, useExisting: forwardRef(() => TreeNodeComponent) }
+    { provide: TreeNode, useExisting: forwardRef(() => TreeNode) }
   ],
-  template: `
-    <div class="node-wrapper" style="margin-left: 20px;">
-      <span>Узел дерева</span>
-      <ng-content />
-    </div>
-  `
+  templateUrl: './tree-node.html',
+  styleUrl: './tree-node.css',
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class TreeNodeComponent implements OnInit {
+export class TreeNode implements OnInit {
   // Запрашиваем родительский узел дерева.
-  // skipSelf: true указывает проигнорировать собственный TreeNodeComponent из массива providers
+  // skipSelf: true указывает проигнорировать собственный TreeNode из массива providers
   // optional: true защищает корневой узел дерева, у которого нет родителя
-  private readonly parentNode = inject(TreeNodeComponent, { 
+  private readonly parentNode = inject(TreeNode, { 
     skipSelf: true, 
     optional: true 
   });
@@ -122,6 +153,22 @@ export class TreeNodeComponent implements OnInit {
       console.log('Это корневой узел дерева (родители отсутствуют).');
     }
   }
+}
+```
+
+#### 2. Файл разметки: `tree-node.html`
+```html
+<div class="node-wrapper">
+  <span>Узел дерева</span>
+  <ng-content />
+</div>
+```
+
+#### 3. Файл стилей: `tree-node.css`
+```css
+.node-wrapper {
+  margin-left: 20px;
+  border-left: 1px dashed var(--border);
 }
 ```
 
@@ -149,10 +196,10 @@ export class TreeNodeComponent implements OnInit {
 Модификатор `{ host: true }` гарантирует, что поиск зависимости поднимется вверх по DOM-дереву, но остановится ровно на элементе, который является точкой монтирования текущего компонента. Это критически важно при написании директив. Если директиве требуется получить доступ к компоненту-контейнеру, на котором она размещена, флаг `host` не позволит по ошибке забрать аналогичный компонент, лежащий на три уровня выше в DOM-дереве.
 
 ### 3. Детальный пошаговый разбор совместного использования `skipSelf` и `optional`
-Разберем выполнение строки `inject(TreeNodeComponent, { skipSelf: true, optional: true })` во втором вложенном элементе `<app-tree-node>`:
-1.  **Считывание инструкции:** Angular видит запрос зависимости `TreeNodeComponent` с флагами `skipSelf` и `optional`.
-2.  **Пропуск локального инжектора:** Обычно поиск начинается с инжектора самого элемента. Но флаг `skipSelf` принуждает Angular пропустить локальный инжектор дочернего элемента, где объявлен собственный провайдер `TreeNodeComponent`.
-3.  **Поиск в родителе:** Angular переходит к Node Injector родительского элемента. Там он находит провайдер родительского `TreeNodeComponent` и успешно возвращает ссылку на него.
+Разберем выполнение строки `inject(TreeNode, { skipSelf: true, optional: true })` во втором вложенном элементе `<app-tree-node>`:
+1.  **Считывание инструкции:** Angular видит запрос зависимости `TreeNode` с флагами `skipSelf` и `optional`.
+2.  **Пропуск локального инжектора:** Обычно поиск начинается с инжектора самого элемента. Но флаг `skipSelf` принуждает Angular пропустить локальный инжектор дочернего элемента, где объявлен собственный провайдер `TreeNode`.
+3.  **Поиск в родителе:** Angular переходит к Node Injector родительского элемента. Там он находит провайдер родительского `TreeNode` и успешно возвращает ссылку на него.
 4.  **Сценарий корневого элемента:** При инициализации самого верхнего (корневого) тега дерева родительский элемент отсутствует. Angular поднимается до самого верха и доходит до `NullInjector`.
 5.  **Предотвращение падения:** В обычных условиях `NullInjector` выбросил бы ошибку. Но так как в запросе присутствует флаг `optional: true`, Angular гасит исключение и безопасно возвращает `null` в качестве результата инициализации свойства.
 
@@ -172,6 +219,7 @@ export class CustomLogger extends LoggerService {
 // ХОРОШО (skipSelf заставит Angular подняться выше и взять оригинальный LoggerService)
 @Injectable()
 export class CustomLogger extends LoggerService {
+  // skipSelf заставляет Angular подняться по иерархии инжекторов, игнорируя собственный CustomLogger
   private parentLogger = inject(LoggerService, { skipSelf: true });
 }
 ```

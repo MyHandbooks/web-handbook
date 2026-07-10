@@ -21,10 +21,11 @@ status: "completed"
 ## ПРАКТИЧЕСКИЕ ШАБЛОНЫ ДЛЯ КОПИРОВАНИЯ
 
 ### Шаблон 1: Декларативный запрос на промисах через `resource()`
-*   **Назначение:** Автоматический сетевой запрос карточки товара через нативный `fetch` каждый раз, когда меняется входной сигнал идентификатора товара, с автоматическим прерыванием старого запроса.
+*   **Назначение:** Автоматический сетевой зарос карточки товара через нативный `fetch` каждый раз, когда меняется входной сигнал идентификатора товара, с автоматическим прерыванием старого запроса.
 
+#### 1. Файл логики: `product-card.ts`
 ```typescript
-import { Component, signal, resource, computed } from '@angular/core';
+import { Component, signal, resource, ChangeDetectionStrategy } from '@angular/core';
 
 export interface ProductDetails {
   id: string;
@@ -34,29 +35,13 @@ export interface ProductDetails {
 
 @Component({
   selector: 'app-product-card',
-  standalone: true,
-  template: `
-    <div class="card">
-      <button (click)="switchProduct('prod-102')">Загрузить товар 102</button>
-      <button (click)="switchProduct('prod-504')">Загрузить товар 504</button>
-
-      <!-- Отслеживаем состояние загрузки напрямую через сигнал isLoading -->
-      @if (productResource.isLoading()) {
-        <p>Загрузка деталей товара с сервера...</p>
-      } @else if (productResource.error()) {
-        <!-- Ловим ошибки сети как сигналы -->
-        <p class="error">Ошибка: {{ productResource.error() }}</p>
-      } @else {
-        <!-- Считываем значение сигнала value() -->
-        <div class="details">
-          <h4>{{ productResource.value()?.title }}</h4>
-          <p>Цена: {{ productResource.value()?.price }} $</p>
-        </div>
-      }
-    </div>
-  `
+  // standalone: true опускается по умолчанию начиная с v19
+  imports: [],
+  templateUrl: './product-card.html',
+  styleUrl: './product-card.css',
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class ProductCardComponent {
+export class ProductCard { // Имя класса очищено от суффикса Component
   // Управляющий реактивный сигнал
   public readonly productId = signal<string>('prod-102');
 
@@ -83,16 +68,58 @@ export class ProductCardComponent {
 }
 ```
 
+#### 2. Файл разметки: `product-card.html`
+```html
+<div class="card">
+  <div class="actions">
+    <button (click)="switchProduct('prod-102')">Загрузить товар 102</button>
+    <button (click)="switchProduct('prod-504')">Загрузить товар 504</button>
+  </div>
+
+  <!-- Отслеживаем состояние загрузки напрямую через сигнал isLoading -->
+  @if (productResource.isLoading()) {
+    <p>Загрузка деталей товара с сервера...</p>
+  } @else if (productResource.error()) {
+    <!-- Ловим ошибки сети как сигналы -->
+    <p class="error">Ошибка: {{ productResource.error() }}</p>
+  } @else {
+    <!-- Считываем значение сигнала value() -->
+    <div class="details">
+      <h4>{{ productResource.value()?.title }}</h4>
+      <p>Цена: {{ productResource.value()?.price }} $</p>
+    </div>
+  }
+</div>
+```
+
+#### 3. Файл стилей: `product-card.css`
+```css
+.card {
+  padding: 16px;
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.actions {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.error {
+  color: var(--error-text);
+}
+```
+
 ---
 
 ### Шаблон 2: Интеграция с RxJS сервисами через `rxResource()`
 *   **Назначение:** Использование преимуществ Сигналов в UI-шаблоне при получении данных из существующего RxJS-сервиса на базе `HttpClient`.
 
+#### 1. Файл логики: `user-profile.ts`
 ```typescript
-import { Component, inject, signal } from '@angular/core';
+import { Component, inject, signal, ChangeDetectionStrategy } from '@angular/core';
 import { rxResource } from '@angular/core/rxjs-interop';
 import { HttpClient } from '@angular/common/http';
-import { Observable } from 'rxjs';
 
 export interface UserAccount {
   id: string;
@@ -101,18 +128,12 @@ export interface UserAccount {
 
 @Component({
   selector: 'app-user-profile',
-  standalone: true,
-  template: `
-    <div class="profile">
-      @if (userResource.isLoading()) {
-        <p>Подключение к потоку данных пользователя...</p>
-      } @else {
-        <p>Email: {{ userResource.value()?.email }}</p>
-      }
-    </div>
-  `
+  imports: [],
+  templateUrl: './user-profile.html',
+  styleUrl: './user-profile.css',
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class UserProfileComponent {
+export class UserProfile {
   private readonly http = inject(HttpClient);
   
   public readonly activeUserId = signal<string>('usr-10');
@@ -129,13 +150,34 @@ export class UserProfileComponent {
 }
 ```
 
+#### 2. Файл разметки: `user-profile.html`
+```html
+<div class="profile">
+  @if (userResource.isLoading()) {
+    <p>Подключение к потоку данных пользователя...</p>
+  } @else {
+    <p>Email: {{ userResource.value()?.email }}</p>
+  }
+</div>
+```
+
+#### 3. Файл стилей: `user-profile.css`
+```css
+.profile {
+  padding: 12px;
+  background-color: var(--bg-secondary);
+  border-radius: 6px;
+}
+```
+
 ---
 
 ### Шаблон 3: Оптимизированный HTTP-запрос через `httpResource()`
 *   **Назначение:** Использование специализированного API (Angular 19.2+) для максимального сокращения бойлерплейта при интеграции с `HttpClient`.
 
+#### 1. Файл логики: `weather-widget.ts`
 ```typescript
-import { Component, signal } from '@angular/core';
+import { Component, signal, ChangeDetectionStrategy } from '@angular/core';
 import { httpResource } from '@angular/common/http';
 
 export interface WeatherData {
@@ -145,18 +187,12 @@ export interface WeatherData {
 
 @Component({
   selector: 'app-weather-widget',
-  standalone: true,
-  template: `
-    <div class="widget">
-      @if (weather.isLoading()) {
-        <p>Запрос погоды...</p>
-      } @else {
-        <p>Температура в {{ weather.value()?.city }}: {{ weather.value()?.temp }}°C</p>
-      }
-    </div>
-  `
+  imports: [],
+  templateUrl: './weather-widget.html',
+  styleUrl: './weather-widget.css',
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class WeatherWidgetComponent {
+export class WeatherWidget {
   public readonly activeCity = signal<string>('Moscow');
 
   // httpResource автоматически берет на себя вызов HttpClient,
@@ -165,6 +201,27 @@ export class WeatherWidgetComponent {
   public readonly weather = httpResource<WeatherData>(() => {
     return `https://api.weather-service.com/v1/forecast?city=${this.activeCity()}`;
   });
+}
+```
+
+#### 2. Файл разметки: `weather-widget.html`
+```html
+<div class="widget">
+  @if (weather.isLoading()) {
+    <p>Запрос погоды...</p>
+  } @else {
+    <p>Температура в {{ weather.value()?.city }}: {{ weather.value()?.temp }}°C</p>
+  }
+</div>
+```
+
+#### 3. Файл стилей: `weather-widget.css`
+```css
+.widget {
+  padding: 16px;
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 8px;
 }
 ```
 
@@ -194,25 +251,20 @@ Resource API решает эту проблему на нативном аппа
 *   `error` — сигнал, хранящий перехваченную ошибку (`Signal<unknown>`).
 *   `isLoading` — удобный вспомогательный булев сигнал, вычисляемый как `status === 'loading'`.
 
-### 4. Детальный пошаговый разбор выполнения шаблона 1
-1.  **Действие:** Вызывается метод `switchProduct('prod-504')`. Сигнал `productId` меняет значение.
-2.  **Триггер параметров:** Секция `params` видит изменение `productId`, запускает пересчет и возвращает строку `'prod-504'`.
-3.  **Отмена старого запроса:** Angular проверяет статус текущего выполняющегося запроса для товара `'prod-102'`. Так как он еще не завершился, Angular вызывает метод `.abort()` на связанном `AbortController`. Предыдущий сетевой запрос прерывается браузером.
-4.  **Запуск лоадера:** Статус ресурса переключается в `'loading'`. Сигнал `isLoading()` начинает возвращать `true`, на экране отображается спиннер. Запускается функция `loader` с новым аргументом `id = 'prod-504'`.
-5.  **Получение данных:** Ответ от сервера успешно возвращается. Статус переключается в `'resolved'`. Переменная `isLoading()` переходит в `false`. Сигнал `value()` наполняется новым объектом товара, и интерфейс мгновенно перерисовывается.
+---
 
-### 5. Типичные ошибки и их решение
+### 4. Типичные ошибки и их решение
 
 *   **Ошибка 1: Чтение `resource.value()` в шаблоне при возникновении серверной ошибки (Error Throw Crash)**
     *   *Симптомы:* Сетевой запрос завершился ошибкой `500`, после чего все приложение падает с белым экраном, а в консоли появляется необработанное исключение при чтении данных.
-    *   *Причина:* По спецификации Resource API, если статус ресурса переходит в `'errored'`, любая попытка прочитать значение сигнала `value()` принудительно выбрасывает зафиксированную ошибку наружу в рантайм. Это сделано для предотвращения отображения неактуальных "загрязненных" данных, но ломает рендеринг Angular, если ошибка не была перехвачена.
+    *   *Физика процесса:* По спецификации Resource API, если статус ресурса переходит в `'errored'`, любая попытка прочитать значение сигнала `value()` принудительно выбрасывает зафиксированную ошибку наружу в рантайм. Это сделано для предотвращения отображения неактуальных "загрязненных" данных, но ломает рендеринг Angular, если ошибка не была перехвачена.
     *   *Решение:* Перед чтением `value()` в шаблоне или computed-сигналах всегда проверяйте статус загрузки через сигналы `error()` или `status()`, либо используйте вспомогательный метод `hasValue()`.
 
-```typescript
-// ПЛОХО (Если произойдет ошибка, чтение value() обрушит приложение)
-// <h4>{{ productResource.value().title }}</h4>
+```html
+<!-- ПЛОХО (Если произойдет ошибка, чтение value() обрушит приложение) -->
+<h4>{{ productResource.value().title }}</h4>
 
-// ХОРОШО (Безопасная проверка наличия значения с помощью Control Flow)
+<!-- ХОРОШО (Безопасная проверка наличия значения с помощью Control Flow) -->
 @if (productResource.error()) {
   <p>Ошибка: {{ productResource.error() }}</p>
 } @else if (productResource.value(); as data) {
@@ -222,17 +274,31 @@ Resource API решает эту проблему на нативном аппа
 
 *   **Ошибка 2: Нарушение реактивности из-за чтения сигналов внутри `loader` в обход `params`**
     *   *Симптомы:* Сигнал-параметр изменился во внешнем коде, но ресурс упорно не запускает повторную отправку сетевого запроса.
-    *   *Причина:* Разработчик прочитал управляющий сигнал напрямую внутри тела функции `loader`, пропустив его объявление в секции `params`:
-        ```typescript
-        // ОШИБКА:loader запускается один раз, так как params пуст и не создает связь в графе
-        product = resource({
-          loader: () => fetch(`/api/${this.productId()}`) // ! productId прочитан мимо params
-        });
-        ```
-        Реактивная связь в графе Angular Signals строится на основе того, какие сигналы были считаны во время выполнения формулы `params`. Сама функция `loader` выполняется вне реактивного контекста отслеживания зависимостей, поэтому изменения сигналов внутри неё игнорируются.
+    *   *Физика процесса:* Разработчик прочитал управляющий сигнал напрямую внутри тела функции `loader`, пропустив его объявление в секции `params`. Сама функция `loader` выполняется вне реактивного контекста отслеживания зависимостей, поэтому изменения сигналов внутри неё игнорируются.
     *   *Решение:* Всегда выносите любые динамические сигналы-зависимости в секцию `params` (как показано в Шаблонах).
+
+```typescript
+ОШИБКА: loader запускается один раз, так как params пуст и не создает связь в графе
+product = resource({
+  loader: () => fetch(`/api/${this.productId()}`) // ! productId прочитан мимо params
+});
+
+// ИСПРАВЛЕНИЕ: Параметр productId объявлен в params
+@Component({
+  selector: 'app-fixed-resource',
+  templateUrl: './fixed-resource.html',
+  styleUrl: './fixed-resource.css'
+})
+export class FixedResource {
+  readonly productId = signal('123');
+  readonly product = resource({
+    params: () => this.productId(),
+    loader: ({ params: id }) => fetch(`/api/${id}`).then(res => res.json())
+  });
+}
+```
 
 *   **Ошибка 3: Ложное зависание ресурсов при использовании httpResource без provideHttpClient**
     *   *Симптомы:* Ошибка компиляции или рантайм-сбой при вызове `httpResource()`.
-    *   *Причина:* `httpResource()` под капотом обращается к системному `HttpClient`. Если вы забыли зарегистрировать провайдер HttpClient в глобальном конфигурационном файле `app.config.ts` вашего Standalone-приложения, ресурс не сможет инициализироваться.
+    *   *Физика процесса:* `httpResource()` под капотом обращается к системному `HttpClient`. Если вы забыли зарегистрировать провайдер HttpClient в глобальном конфигурационном файле `app.config.ts` вашего Standalone-приложения, ресурс не сможет инициализироваться.
     *   *Решение:* Убедитесь, что в списке провайдеров `appConfig` присутствует вызов `provideHttpClient()`.

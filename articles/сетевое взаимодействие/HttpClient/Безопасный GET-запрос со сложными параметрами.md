@@ -1,6 +1,6 @@
 ---
 tags: [angular, сетевое-взаимодействие, HttpClient]
-related: ["[[Конфигурация подмены провайдеров (app.config).md]]", "[[Обработка сетевых ошибок и авто-повтор (Retry).md]]", "[[Универсальные обобщения (Generics).md]]"]
+related: ["[[POST-запрос с отправкой файлов (FormData).md]]", "[[Обработка сетевых ошибок и авто-повтор (Retry).md]]"]
 status: "completed"
 ---
 
@@ -139,8 +139,9 @@ export class HttpParamsSerializer {
 ### Шаблон 3: Реактивный поток данных на основе Сигналов и HttpClient
 *   **Назначение:** Построение современного реактивного UI-компонента, автоматически запрашивающего данные при изменении сигнала фильтрации с предотвращением гонок запросов (Race Conditions).
 
+#### 1. Файл логики: `data-grid.ts`
 ```typescript
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, inject, signal, ChangeDetectionStrategy } from '@angular/core';
 import { toObservable, toSignal } from '@angular/core/rxjs-interop';
 import { switchMap, catchError } from 'rxjs/operators';
 import { of } from 'rxjs';
@@ -148,27 +149,13 @@ import { DataQueryService, PaginationFilter } from './data-query.service';
 
 @Component({
   selector: 'app-data-grid',
-  standalone: true,
-  template: `
-    <!-- Декларативно выводим состояние загрузки и данные -->
-    @if (dataState(); as state) {
-      @if (state.isLoading) {
-        <p>Загрузка свежих данных...</p>
-      } @else if (state.error) {
-        <p class="error-msg">Ошибка: {{ state.error }}</p>
-      } @else {
-        <ul>
-          @for (item of state.data?.items; track item.id) {
-            <li>{{ item.itemName }} ({{ item.itemCategory }})</li>
-          } @empty {
-            <li>Нет подходящих записей</li>
-          }
-        </ul>
-      }
-    }
-  `
+  // standalone: true опускается по умолчанию начиная с v19
+  imports: [], // Использование встроенного Control Flow избавляет от явного импорта директив в standalone-компоненте
+  templateUrl: './data-grid.html',
+  styleUrl: './data-grid.css',
+  changeDetection: ChangeDetectionStrategy.OnPush // OnPush оптимизирует Change Detection при работе с сигналами
 })
-export class DataGridComponent {
+export class DataGrid { // Название класса очищено от устаревшего суффикса Component
   private readonly dataService = inject(DataQueryService);
 
   // Реактивный сигнал, хранящий текущие настройки фильтрации
@@ -199,6 +186,72 @@ export class DataGridComponent {
   public readonly dataState = toSignal(this.dataLoader$, {
     initialValue: { data: null, isLoading: true, error: null }
   });
+}
+```
+
+#### 2. Файл разметки: `data-grid.html`
+```html
+<!-- Декларативно выводим состояние загрузки и данные на основе сигнального состояния -->
+@if (dataState(); as state) {
+  @if (state.isLoading) {
+    <p class="loading-text">Загрузка свежих данных...</p>
+  } @else if (state.error) {
+    <p class="error-msg">Ошибка: {{ state.error }}</p>
+  } @else {
+    <ul class="data-list">
+      @for (item of state.data?.items; track item.id) {
+        <li class="data-item">
+          <span class="item-name">{{ item.itemName }}</span> 
+          <span class="item-category">({{ item.itemCategory }})</span>
+        </li>
+      } @empty {
+        <li class="empty-placeholder">Нет подходящих записей</li>
+      }
+    </ul>
+  }
+}
+```
+
+#### 3. Файл стилей: `data-grid.css`
+```css
+.loading-text {
+  color: var(--text-muted);
+  font-style: italic;
+  padding: 12px 0;
+}
+
+.error-msg {
+  color: var(--error-text);
+  font-weight: 600;
+  padding: 12px 0;
+}
+
+.data-list {
+  list-style-type: none;
+  padding: 0;
+  margin: 12px 0;
+}
+
+.data-item {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  justify-content: space-between;
+}
+
+.item-name {
+  font-weight: 500;
+}
+
+.item-category {
+  color: var(--text-muted);
+  font-size: 0.85em;
+}
+
+.empty-placeholder {
+  color: var(--text-muted);
+  text-align: center;
+  padding: 16px;
 }
 ```
 

@@ -1,6 +1,6 @@
 ---
 tags: [angular, компоненты-и-шаблоны, проекция-разметки]
-related: ["Базовая декларативная структура Standalone-компонента.md", "Управление нативными HTML5-диалогами через ViewChild и ElementRef.md"]
+related: ["[[Базовая декларативная структура Standalone-компонента.md]]", "[[Управление нативными HTML5-диалогами через ViewChild и ElementRef.md]]"]
 status: "completed"
 ---
 
@@ -19,109 +19,166 @@ status: "completed"
 ## ПРАКТИЧЕСКИЕ ШАБЛОНЫ ДЛЯ КОПИРОВАНИЯ
 
 ### Шаблон 1: Создание каркаса карточки с мультислотовым разделением
-*   **Назначение:** Описание структуры гибкого дочернего компонента-контейнера `BaseLayoutCardComponent` со слотами для заголовка, тела и функциональных кнопок.
+*   **Назначение:** Описание структуры гибкого дочернего компонента-контейнера `BaseLayoutCard` со слотами для заголовка, тела и функциональных кнопок.
 
+#### 1. Файл логики: `base-layout-card.ts`
 ```typescript
 import { Component, ChangeDetectionStrategy } from '@angular/core';
 
 @Component({
   selector: 'app-base-layout-card',
-  standalone: true,
+  // standalone: true опускается по умолчанию начиная с v19
   imports: [], // Проекция контента является встроенной возможностью и не требует внешних импортов
-  template: `
-    <div class="card-container">
-      <!-- 
-        Именованный слот для заголовка. 
-        Захватывает любые элементы, переданные с CSS-классом "card-header".
-      -->
-      <header class="card-title-zone">
-        <ng-content select=".card-header" />
-      </header>
-
-      <!-- 
-        Дефолтный слот без атрибута select.
-        Принимает в себя все переданные элементы, не подошедшие под другие правила.
-      -->
-      <main class="card-body-zone">
-        <ng-content />
-      </main>
-
-      <!-- 
-        Именованный слот для действий. 
-        Захватывает элементы, у которых объявлен HTML-атрибут "card-actions".
-      -->
-      <footer class="card-actions-zone">
-        <ng-content select="[card-actions]" />
-      </footer>
-    </div>
-  `,
-  styles: [`
-    .card-container { border: 1px solid var(--border); border-radius: 8px; overflow: hidden; background-color: var(--bg-secondary); }
-    .card-title-zone { padding: 12px 16px; border-bottom: 1px solid var(--border); font-weight: 600; }
-    .card-body-zone { padding: 16px; color: var(--text-normal); }
-    .card-actions-zone { padding: 12px 16px; border-top: 1px solid var(--border); display: flex; gap: 8px; justify-content: flex-end; }
-    
-    /* 
-      CSS-оптимизация: если родитель не передал элементы для слота действий, 
-      блок футера автоматически скрывается из разметки с помощью псевдокласса :empty.
-    */
-    .card-actions-zone:empty { display: none; }
-  `],
+  templateUrl: './base-layout-card.html',
+  styleUrl: './base-layout-card.css',
   changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class BaseLayoutCardComponent {}
+export class BaseLayoutCard { // Имя класса не содержит суффикса Component
+}
+```
+
+#### 2. Файл разметки: `base-layout-card.html`
+```html
+<div class="card-container">
+  <!-- 
+    Именованный слот для заголовка. 
+    Захватывает любые элементы, переданные с CSS-классом "card-header".
+  -->
+  <header class="card-title-zone">
+    <ng-content select=".card-header" />
+  </header>
+
+  <!-- 
+    Дефолтный слот без атрибута select.
+    Принимает в себя все переданные элементы, не подошедшие под другие правила.
+  -->
+  <main class="card-body-zone">
+    <ng-content />
+  </main>
+
+  <!-- 
+    Именованный слот для действий. 
+    Захватывает элементы, у которых объявлен HTML-атрибут "card-actions".
+  -->
+  <footer class="card-actions-zone">
+    <ng-content select="[card-actions]" />
+  </footer>
+</div>
+```
+
+#### 3. Файл стилей: `base-layout-card.css`
+```css
+.card-container {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  background-color: var(--bg-secondary);
+}
+
+.card-title-zone {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+  font-weight: 600;
+}
+
+.card-body-zone {
+  padding: 16px;
+  color: var(--text-normal);
+}
+
+.card-actions-zone {
+  padding: 12px 16px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+/* 
+  CSS-оптимизация: если родитель не передал элементы для слота действий, 
+  блок футера автоматически скрывается из разметки с помощью псевдокласса :empty.
+*/
+.card-actions-zone:empty {
+  display: none;
+}
 ```
 
 ---
 
 ### Шаблон 2: Наполнение каркаса слотов в родительском компоненте
-*   **Назначение:** Использование созданного каркаса `BaseLayoutCardComponent` в родительском шаблоне с распределением элементов по слотам.
+*   **Назначение:** Использование созданного каркаса `BaseLayoutCard` в родительском шаблоне с распределением элементов по слотам.
 
+#### 1. Файл логики: `parent-layout-demo.ts`
 ```typescript
 import { Component, ChangeDetectionStrategy } from '@angular/core';
-import { BaseLayoutCardComponent } from './base-layout-card.component';
+import { BaseLayoutCard } from './base-layout-card';
 
 @Component({
   selector: 'app-parent-layout-demo',
-  standalone: true,
-  imports: [BaseLayoutCardComponent], // Явный импорт дочернего каркаса
-  template: `
-    <div class="demo-wrapper">
-      <app-base-layout-card>
-        <!-- 
-          Элемент попадет в шапку, так как его CSS-класс совпадает 
-          с селектором .card-header в дочернем компоненте.
-        -->
-        <div class="card-header">
-          <h3>Системный мониторинг</h3>
-        </div>
-
-        <!-- 
-          Эти элементы не имеют специальных маркеров, 
-          поэтому они автоматически проецируются в дефолтный слот тела.
-        -->
-        <p>Ядро базы данных функционирует стабильно.</p>
-        <p>Текущее потребление ресурсов памяти: 34%.</p>
-
-        <!-- 
-          Элемент попадет в футер, так как у него объявлен 
-          атрибут card-actions, указанный в select дочернего элемента.
-        -->
-        <div card-actions>
-          <button class="btn-alt">Логи</button>
-          <button class="btn-main">Обновить</button>
-        </div>
-      </app-base-layout-card>
-    </div>
-  `,
-  styles: [`
-    .demo-wrapper { max-width: 450px; padding: 20px; }
-    .btn-main { background-color: var(--accent); color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; }
-    .btn-alt { background: none; border: 1px solid var(--border); color: var(--text-normal); padding: 6px 12px; border-radius: 4px; cursor: pointer; }
-  `],
+  imports: [BaseLayoutCard], // Явный импорт дочернего каркаса
+  templateUrl: './parent-layout-demo.html',
+  styleUrl: './parent-layout-demo.css',
   changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class ParentLayoutDemoComponent {}
+export class ParentLayoutDemo { // Имя класса не содержит суффикса Component
+}
+```
+
+#### 2. Файл разметки: `parent-layout-demo.html`
+```html
+<div class="demo-wrapper">
+  <app-base-layout-card>
+    <!-- 
+      Элемент попадет в шапку, так как его CSS-класс совпадает 
+      с селектором .card-header в дочернем компоненте.
+    -->
+    <div class="card-header">
+      <h3>Системный мониторинг</h3>
+    </div>
+
+    <!-- 
+      Эти элементы не имеют специальных маркеров, 
+      поэтому они автоматически проецируются в дефолтный слот тела.
+    -->
+    <p>Ядро базы данных функционирует стабильно.</p>
+    <p>Текущее потребление ресурсов памяти: 34%.</p>
+
+    <!-- 
+      Элемент попадет в футер, так как у него объявлен 
+      атрибут card-actions, указанный в select дочернего элемента.
+    -->
+    <div card-actions>
+      <button class="btn-alt">Логи</button>
+      <button class="btn-main">Обновить</button>
+    </div>
+  </app-base-layout-card>
+</div>
+```
+
+#### 3. Файл стилей: `parent-layout-demo.css`
+```css
+.demo-wrapper {
+  max-width: 450px;
+  padding: 20px;
+}
+
+.btn-main {
+  background-color: var(--accent);
+  color: white;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.btn-alt {
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--text-normal);
+  padding: 6px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+}
 ```
 
 ---
@@ -154,74 +211,69 @@ export class ParentLayoutDemoComponent {}
 
 *   **Ошибка 1: Попытка кондиционального разрушения компонентов через `@if` на `<ng-content>` (Ловушка производительности)**
     *   *Симптомы:* Дочерний компонент скрыт на экране, но в фоновом режиме по-прежнему выполняются его сетевые запросы внутри `ngOnInit`, происходят утечки памяти или падения логики.
-    *   *Физика процесса:* Если обернуть тег `<ng-content>` в блок `@if (isVisible)`, то при значении `false` Angular скроет элементы из DOM. Однако, так как жизненный цикл проецируемого контента управляется родителем, исходные компоненты *уже* были созданы и запущены в памяти! Скрытие слота не уничтожает экземпляры проецируемых классов.
+    *   *Физика процесса:* Если обернуть тег `<ng-content>` в блок `@if (isVisible)`, то при значении `false` Angular скроет элементы из DOM. Однако, так как жизненный цикл проецируемого контента управляется родителем, исходные компоненты *уже* были созданы и запущены в памяти. Скрытие слота не уничтожает экземпляры проецируемых классов.
     *   *Решение:* Использовать проекцию на основе шаблонов `ng-template` и директивы `ngTemplateOutlet` для достижения реальной ленивой загрузки.
 
 ```typescript
 // ОШИБКА: Компоненты внутри ng-content все равно будут инициализированы в памяти!
 @Component({
-  template: `
-    <div class="wrapper">
-      @if (isOpen()) {
-        <ng-content />
-      }
-    </div>
-  `
+  selector: 'app-lazy-card',
+  templateUrl: './lazy-card.html',
+  styleUrl: './lazy-card.css'
 })
-export class LazyCardComponent { ... }
+export class LazyCard {
+  readonly isOpen = signal(false);
+}
+// В шаблоне: @if (isOpen()) { <ng-content /> }
 
 // ИСПРАВЛЕНИЕ: Шаблонная ленивая проекция контента
+import { NgTemplateOutlet } from '@angular/common';
+
 @Component({
   selector: 'app-lazy-card-fixed',
-  standalone: true,
   imports: [NgTemplateOutlet],
-  template: `
-    <div class="wrapper">
-      @if (isOpen()) {
-        <!-- Шаблон развернется и инициализирует компоненты только в момент активации блока @if -->
-        <ng-container [ngTemplateOutlet]="contentTemplate()" />
-      }
-    </div>
-  `
+  templateUrl: './lazy-card-fixed.html',
+  styleUrl: './lazy-card-fixed.css'
 })
-export class LazyCardFixedComponent {
+export class LazyCardFixed {
+  readonly isOpen = signal(false);
   // Запрос переданного извне шаблона ng-template
   readonly contentTemplate = contentChild.required(TemplateRef);
 }
 ```
+```html
+<!-- Шаблон развернется и инициализирует компоненты только в момент активации блока @if -->
+<div class="wrapper">
+  @if (isOpen()) {
+    <ng-container [ngTemplateOutlet]="contentTemplate()" />
+  }
+</div>
+```
 
 *   **Ошибка 2: Блокада CSS-инкапсуляции при попытке стилизовать проецируемый контент из дочернего компонента**
-    *   *Симптомы:* Написанные в `styles` компонента-каркаса правила не применяются к элементам, пришедшим через `<ng-content>`.
+    *   *Симптомы:* Написанные в `styleUrl` компонента-каркаса правила не применяются к элементам, пришедшим через `<ng-content>`.
     *   *Физика процесса:* Механизм эмуляции Shadow DOM в Angular добавляет к селекторам уникальные хэш-атрибуты (например, `_ngcontent-c100`). Проецируемые элементы получают хэш-атрибут родительского компонента, так как компилировались в его контексте. Стили ребенка, скомпилированные с хэшем ребенка, физически не могут сопоставиться со структурой родительских элементов.
     *   *Решение:* Использовать псевдокласс `:host ::ng-deep` для форсированного проникновения стилей сквозь границы инкапсуляции.
 
 ```typescript
 // ОШИБКА: Этот стиль проигнорируется, так как h3 получит хэш-атрибут родительского компонента
 @Component({
-  styles: [`
-    .card-title-zone h3 { color: var(--accent); } 
-  `]
+  selector: 'app-fail-card',
+  templateUrl: './fail-card.html',
+  styleUrl: './fail-card.css' // .card-title-zone h3 { color: var(--accent); }
 })
-export class FailCardComponent { ... }
+export class FailCard { }
 
 // ИСПРАВЛЕНИЕ: Применение ::ng-deep для преодоления границ инкапсуляции стилей
 @Component({
-  styles: [`
-    :host ::ng-deep .card-title-zone h3 { color: var(--accent); }
-  `]
+  selector: 'app-fixed-card',
+  templateUrl: './fixed-card.html',
+  styleUrl: './fixed-card.css' // :host ::ng-deep .card-title-zone h3 { color: var(--accent); }
 })
-export class FixedCardComponent { ... }
+export class FixedCard { }
 ```
 
 *   **Ошибка 3: Попытка дублирования одного и того же элемента в нескольких слотах**
     *   *Симптомы:* Элемент отображается на экране только в одном месте, а второй слот остается пустым, либо верстка ломается.
     *   *Физика процесса:* Angular не клонирует DOM-элементы при проекции. Элемент является физическим синглтон-узлом в памяти браузера. При попытке проецировать его в два места одновременно, браузер физически сможет разместить его только в последней обработанной точке монтирования.
     *   *Решение:* Если элемент должен повторяться, его структуру необходимо обернуть в `ng-template` и размножить через цикл или директиву `ngTemplateOutlet`.
-
-```typescript
-// ОШИБКА: Попытка продублировать один элемент в два слота провалится
-// Шаблон родителя:
-<app-card>
-  <span class="badge">Новинка</span> <!-- Нельзя разместить в нескольких местах одновременно -->
-</app-card>
-```

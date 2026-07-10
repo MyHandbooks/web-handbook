@@ -21,8 +21,9 @@ status: "completed"
 ### Шаблон 1: Краткая форма linkedSignal (Автосброс счетчика при смене товара)
 *   **Назначение:** Реализация классического сценария интернет-магазина, где количество заказываемого товара сбрасывается в `1` при переключении пользователем активного продукта, но остается свободно изменяемым при нажатии на кнопки «+» и «-».
 
+#### 1. Файл логики: `product-order.ts`
 ```typescript
-import { Component, signal, linkedSignal } from '@angular/core';
+import { Component, signal, linkedSignal, ChangeDetectionStrategy } from '@angular/core';
 
 export interface CatalogProduct {
   id: string;
@@ -31,22 +32,13 @@ export interface CatalogProduct {
 
 @Component({
   selector: 'app-product-order',
-  standalone: true,
-  template: `
-    <div class="order-card">
-      <h3>Выбранный товар: {{ activeProduct().name }}</h3>
-      
-      <div class="counter">
-        <button (click)="decrement()">-</button>
-        <span>Количество: {{ quantity() }}</span>
-        <button (click)="increment()">+</button>
-      </div>
-
-      <button (click)="switchProduct()">Сменить товар</button>
-    </div>
-  `
+  // standalone: true опускается по умолчанию начиная с v19
+  imports: [],
+  templateUrl: './product-order.html',
+  styleUrl: './product-order.css',
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class ProductOrderComponent {
+export class ProductOrder { // Имя класса очищено от суффикса Component
   // Сигнал, хранящий текущий выбранный продукт
   public readonly activeProduct = signal<CatalogProduct>({
     id: 'prod-1',
@@ -83,13 +75,53 @@ export class ProductOrderComponent {
 }
 ```
 
+#### 2. Файл разметки: `product-order.html`
+```html
+<div class="order-card">
+  <h3>Выбранный товар: {{ activeProduct().name }}</h3>
+  
+  <div class="counter">
+    <button (click)="decrement()">-</button>
+    <span>Количество: {{ quantity() }}</span>
+    <button (click)="increment()">+</button>
+  </div>
+
+  <button (click)="switchProduct()" class="action-btn">Сменить товар</button>
+</div>
+```
+
+#### 3. Файл стилей: `product-order.css`
+```css
+.order-card {
+  padding: 16px;
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.counter {
+  margin: 12px 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.action-btn {
+  padding: 6px 12px;
+  cursor: pointer;
+  background-color: var(--accent);
+  color: white;
+  border: none;
+  border-radius: 6px;
+}
+```
+
 ---
 
 ### Шаблон 2: Полная форма linkedSignal с явным разделением источника и вычисления
 *   **Назначение:** Использование продвинутой сигнатуры с доступом к предыдущему значению сигнала (`previous`). Позволяет делать "умные" сбросы — например, предотвращать сброс состояния формы, если ID нового товара остался прежним, а изменились лишь его второстепенные характеристики.
 
+#### 1. Файл логики: `profile-editor.ts`
 ```typescript
-import { Component, signal, linkedSignal } from '@angular/core';
+import { Component, signal, linkedSignal, ChangeDetectionStrategy } from '@angular/core';
 
 export interface UserProfilePayload {
   userId: string;
@@ -99,23 +131,12 @@ export interface UserProfilePayload {
 
 @Component({
   selector: 'app-profile-editor',
-  standalone: true,
-  template: `
-    <div class="editor">
-      <h4>Редактирование профиля: {{ activeProfile().userName }}</h4>
-      
-      <textarea 
-        [value]="commentDraft()" 
-        (input)="updateDraft($event)"
-        rows="3"
-      ></textarea>
-
-      <button (click)="loadNextProfile()">Загрузить другой профиль</button>
-      <button (click)="updateProfileName()">Обновить только имя текущего</button>
-    </div>
-  `
+  imports: [],
+  templateUrl: './profile-editor.html',
+  styleUrl: './profile-editor.css',
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class ProfileEditorComponent {
+export class ProfileEditor {
   // Активный профиль пользователя
   public readonly activeProfile = signal<UserProfilePayload>({
     userId: 'usr-1',
@@ -168,6 +189,57 @@ export class ProfileEditorComponent {
 }
 ```
 
+#### 2. Файл разметки: `profile-editor.html`
+```html
+<div class="editor">
+  <h4>Редактирование профиля: {{ activeProfile().userName }}</h4>
+  
+  <textarea 
+    [value]="commentDraft()" 
+    (input)="updateDraft($event)"
+    rows="3"
+    class="theme-input"
+  ></textarea>
+
+  <div class="actions">
+    <button (click)="loadNextProfile()">Загрузить другой профиль</button>
+    <button (click)="updateProfileName()">Обновить только имя текущего</button>
+  </div>
+</div>
+```
+
+#### 3. Файл стилей: `profile-editor.css`
+```css
+.editor {
+  padding: 16px;
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.theme-input {
+  width: 100%;
+  margin-top: 8px;
+  padding: 8px;
+  background-color: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text-normal);
+}
+.actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+button {
+  padding: 6px 12px;
+  cursor: pointer;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background-color: var(--bg-primary);
+  color: var(--text-normal);
+}
+```
+
 ---
 
 ## ГЛУБОКОЕ ПОГРУЖЕНИЕ
@@ -214,10 +286,12 @@ function linkedSignal<S, D>(options: {
 3.  **Анализ `linkedSignal`:** `commentDraft` видит изменение источника и запускает функцию `computation`:
     *   `currentProfile` равен `{ userId: 'usr-1', userName: 'Алексей (Ред.)', ... }`.
     *   `previous.source` равен `{ userId: 'usr-1', userName: 'Алексей', ... }`.
-    *   `previous.value` равен текущему набранному пользователем тексту в textarea.
+    *   `previous.value` равен текущему набранному пользователю тексту в textarea.
 4.  **Сравнение:** Код проверяет условие: `previous.source.userId === currentProfile.userId`. Условие истинно (`'usr-1' === 'usr-1'`).
 5.  **Блокировка сброса:** Функция возвращает `previous.value`. Текущий набранный пользователем черновик не затирается, текст в textarea остается нетронутым.
 6.  **Результат:** Данные синхронизированы без затирания пользовательского ввода.
+
+---
 
 ### 4. Типичные ошибки и их решение
 
@@ -228,10 +302,22 @@ function linkedSignal<S, D>(options: {
 
 ```typescript
 // ОШИБКА: Упадет при инициализации, так как prev равен undefined
-// computation: (curr, prev) => prev.source.id === curr.id ? prev.value : curr.default
+computation: (curr, prev) => prev.source.id === curr.id ? prev.value : curr.default
 
 // ИСПРАВЛЕНИЕ: Безопасное использование опциональной цепочки
-computation: (curr, prev) => prev?.source.id === curr.id ? prev.value : curr.default
+@Component({
+  selector: 'app-safe-draft',
+  templateUrl: './safe-draft.html',
+  styleUrl: './safe-draft.css'
+})
+export class SafeDraft {
+  public readonly profile = signal({ id: '1', defaultText: 'Привет' });
+  
+  public readonly draft = linkedSignal<any, string>({
+    source: () => this.profile(),
+    computation: (curr, prev) => prev?.source.id === curr.id ? prev.value : curr.defaultText
+  });
+}
 ```
 
 *   **Ошибка 2: Попытка прямой записи в computed вместо использования linkedSignal**
@@ -241,12 +327,23 @@ computation: (curr, prev) => prev?.source.id === curr.id ? prev.value : curr.def
 
 ```typescript
 // ОШИБКА: computed доступен только для чтения
-// draft = computed(() => this.profile().defaultText);
-// update(val: string) { this.draft.set(val); }
+draft = computed(() => this.profile().defaultText);
+update(val: string) { this.draft.set(val); }
 
 // ИСПРАВЛЕНИЕ: linkedSignal сохраняет реактивную связь, но открыт для записи
-draft = linkedSignal(() => this.profile().defaultText);
-update(val: string) { this.draft.set(val); }
+@Component({
+  selector: 'app-writable-draft',
+  templateUrl: './writable-draft.html',
+  styleUrl: './writable-draft.css'
+})
+export class WritableDraft {
+  public readonly profile = signal({ id: '1', defaultText: 'Привет' });
+  public readonly draft = linkedSignal(() => this.profile().defaultText);
+
+  public update(val: string): void {
+    this.draft.set(val); // Успешно перезаписываем локальный сигнал
+  }
+}
 ```
 
 *   **Ошибка 3: Создание хрупких длинных цепочек сброса состояния (Reset Cascade)**

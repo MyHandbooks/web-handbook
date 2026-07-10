@@ -1,6 +1,6 @@
 ---
 tags: [angular, компоненты-и-шаблоны, проекция-разметки]
-related: ["Базовая декларативная структура Standalone-компонента.md", "Каркас с мультислотовой проекцией (ng-content).md"]
+related: ["[[Базовая декларативная структура Standalone-компонента.md]]", "[[Каркас с мультислотовой проекцией (ng-content).md]]"]
 status: "completed"
 ---
 
@@ -19,51 +19,21 @@ status: "completed"
 ## ПРАКТИЧЕСКИЕ ШАБЛОНЫ ДЛЯ КОПИРОВАНИЯ
 
 ### Шаблон 1: Изолированный переиспользуемый компонент-диалог
-*   **Назначение:** Описание логики полностью инкапсулированного модального окна `InteractiveDialogComponent` с программным интерфейсом открытия/закрытия и обработкой закрытия.
+*   **Назначение:** Описание логики полностью инкапсулированного модального окна `InteractiveDialog` с программным интерфейсом открытия/закрытия и обработкой закрытия.
 
+#### 1. Файл логики: `interactive-dialog.ts`
 ```typescript
 import { Component, ChangeDetectionStrategy, viewChild, ElementRef, output } from '@angular/core';
 
 @Component({
   selector: 'app-interactive-dialog',
-  standalone: true,
+  // standalone: true опускается по умолчанию начиная с v19
   imports: [],
-  template: `
-    <!-- 
-      Нативный тег dialog. 
-      Слушаем нативное событие (close), которое срабатывает при закрытии диалога 
-      браузером (например, по нажатию клавиши Escape).
-    -->
-    <dialog #nativeDialog class="app-modal" (close)="onDialogNativeClose()">
-      <div class="modal-content">
-        <header class="modal-header">
-          <ng-content select="[modal-title]" />
-        </header>
-        
-        <main class="modal-body">
-          <ng-content />
-        </main>
-        
-        <footer class="modal-footer">
-          <!-- Нативный вызов закрытия диалога через метод закрытия компонента -->
-          <button class="btn-close" (click)="closeModal()">Закрыть окно</button>
-        </footer>
-      </div>
-    </dialog>
-  `,
-  styles: [`
-    .app-modal { border: none; border-radius: 12px; padding: 0; background-color: var(--bg-secondary); box-shadow: 0 12px 32px rgba(0, 0, 0, 0.4); max-width: 500px; width: 100%; color: var(--text-normal); }
-    /* Стилизация встроенного нативного заднего фона затемнения (backdrop) */
-    .app-modal::backdrop { background-color: rgba(0, 0, 0, 0.6); backdrop-filter: blur(4px); }
-    .modal-content { padding: 24px; display: flex; flex-direction: column; gap: 16px; }
-    .modal-header { font-size: 1.25rem; font-weight: 700; border-bottom: 1px solid var(--border); padding-bottom: 12px; }
-    .modal-body { line-height: 1.6; }
-    .modal-footer { display: flex; justify-content: flex-end; border-top: 1px solid var(--border); padding-top: 12px; }
-    .btn-close { background-color: var(--accent); color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: 600; }
-  `],
+  templateUrl: './interactive-dialog.html',
+  styleUrl: './interactive-dialog.css',
   changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class InteractiveDialogComponent {
+export class InteractiveDialog { // Имя класса не содержит суффикса Component
   // Сигнальный запрос нативного элемента dialog с явным кастом типа HTMLDialogElement
   readonly dialogEl = viewChild.required<ElementRef<HTMLDialogElement>>('nativeDialog');
 
@@ -97,47 +67,110 @@ export class InteractiveDialogComponent {
 }
 ```
 
+#### 2. Файл разметки: `interactive-dialog.html`
+```html
+<!-- 
+  Нативный тег dialog. 
+  Слушаем нативное событие (close), которое срабатывает при закрытии диалога 
+  браузером (например, по нажатию клавиши Escape).
+-->
+<dialog #nativeDialog class="app-modal" (close)="onDialogNativeClose()">
+  <div class="modal-content">
+    <header class="modal-header">
+      <ng-content select="[modal-title]" />
+    </header>
+    
+    <main class="modal-body">
+      <ng-content />
+    </main>
+    
+    <footer class="modal-footer">
+      <!-- Нативный вызов закрытия диалога через метод закрытия компонента -->
+      <button class="btn-close" (click)="closeModal()">Закрыть окно</button>
+    </footer>
+  </div>
+</dialog>
+```
+
+#### 3. Файл стилей: `interactive-dialog.css`
+```css
+.app-modal {
+  border: none;
+  border-radius: 12px;
+  padding: 0;
+  background-color: var(--bg-secondary);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.4);
+  max-width: 500px;
+  width: 100%;
+  color: var(--text-normal);
+}
+
+/* Стилизация встроенного нативного заднего фона затемнения (backdrop) */
+.app-modal::backdrop {
+  background-color: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
+}
+
+.modal-content {
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.modal-header {
+  font-size: 1.25rem;
+  font-weight: 700;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 12px;
+}
+
+.modal-body {
+  line-height: 1.6;
+}
+
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  border-top: 1px solid var(--border);
+  padding-top: 12px;
+}
+
+.btn-close {
+  background-color: var(--accent);
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 600;
+}
+```
+
 ---
 
 ### Шаблон 2: Вызов и интеграция диалога в родительском компоненте
-*   **Назначение:** Размещение диалога в шаблоне родителя `ParentDashboardComponent` и управление его открытием по клику на кнопку.
+*   **Назначение:** Размещение диалога в шаблоне родителя `ParentDashboard` и управление его открытием по клику на кнопку.
 
+#### 1. Файл логики: `parent-dashboard.ts`
 ```typescript
 import { Component, ChangeDetectionStrategy, viewChild } from '@angular/core';
-import { InteractiveDialogComponent } from './interactive-dialog.component';
+import { InteractiveDialog } from './interactive-dialog';
 
 @Component({
   selector: 'app-parent-dashboard',
-  standalone: true,
-  imports: [InteractiveDialogComponent], // Импорт дочернего компонента-модалки
-  template: `
-    <div class="dashboard-panel">
-      <h2>Панель администрирования</h2>
-      <button class="btn-trigger" (click)="openConfirmation()">Удалить системные логи</button>
-
-      <!-- Инстанс диалога в верстке родителя -->
-      <app-interactive-dialog #confirmationModal (dialogClosed)="onModalDismissed()">
-        <!-- Проекция контента в слот заголовка -->
-        <span modal-title>Запрос на удаление данных</span>
-        
-        <!-- Проекция контента в дефолтный слот тела -->
-        <p>Вы действительно хотите безвозвратно стереть все накопленные системные логи за текущий месяц? Данную операцию невозможно отменить.</p>
-      </app-interactive-dialog>
-    </div>
-  `,
-  styles: [`
-    .dashboard-panel { padding: 30px; }
-    .btn-trigger { background-color: var(--error-text); color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-weight: 600; }
-  `],
+  imports: [InteractiveDialog], // Импорт дочернего компонента-модалки
+  templateUrl: './parent-dashboard.html',
+  styleUrl: './parent-dashboard.css',
   changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class ParentDashboardComponent {
+export class ParentDashboard { // Имя класса не содержит суффикса Component
   // Поиск дочернего компонента диалога в шаблоне по его локальной переменной #confirmationModal
-  readonly modal = viewChild.required(InteractiveDialogComponent);
+  readonly modal = viewChild.required(InteractiveDialog);
 
   // Обработчик кнопки открытия
   openConfirmation(): void {
-    // Вызываем публичный метод управления, объявленный в InteractiveDialogComponent
+    // Вызываем публичный метод управления, объявленный в InteractiveDialog
     this.modal().openModal();
   }
 
@@ -145,6 +178,40 @@ export class ParentDashboardComponent {
   onModalDismissed(): void {
     console.log('Диалоговое окно было успешно закрыто пользователем. Ресурсы очищены.');
   }
+}
+```
+
+#### 2. Файл разметки: `parent-dashboard.html`
+```html
+<div class="dashboard-panel">
+  <h2>Панель администрирования</h2>
+  <button class="btn-trigger" (click)="openConfirmation()">Удалить системные логи</button>
+
+  <!-- Инстанс диалога в верстке родителя -->
+  <app-interactive-dialog #confirmationModal (dialogClosed)="onModalDismissed()">
+    <!-- Проекция контента в слот заголовка -->
+    <span modal-title>Запрос на удаление данных</span>
+    
+    <!-- Проекция контента в дефолтный слот тела -->
+    <p>Вы действительно хотите безвозвратно стереть все накопленные системные логи за текущий месяц? Данную операцию невозможно отменить.</p>
+  </app-interactive-dialog>
+</div>
+```
+
+#### 3. Файл стилей: `parent-dashboard.css`
+```css
+.dashboard-panel {
+  padding: 30px;
+}
+
+.btn-trigger {
+  background-color: var(--error-text);
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
 }
 ```
 
@@ -183,16 +250,27 @@ export class ParentDashboardComponent {
 ```typescript
 // ОШИБКА: Прямое управление стилем display скрывает нативные преимущества диалога
 @Component({
-  template: `<dialog [style.display]="isOpen ? 'block' : 'none'">...</dialog>`
+  selector: 'app-bad-dialog',
+  templateUrl: './bad-dialog.html',
+  styleUrl: './bad-dialog.css'
 })
-export class BadDialogComponent { isOpen = false; }
+export class BadDialog {
+  isOpen = false;
+}
+// В шаблоне: <dialog [style.display]="isOpen ? 'block' : 'none'">...</dialog>
 
 // ИСПРАВЛЕНИЕ: Открытие строго через вызов метода API в классе
-// Шаблон: <dialog #myDialog>...</dialog>
-readonly myDialog = viewChild.required<ElementRef<HTMLDialogElement>>('myDialog');
+@Component({
+  selector: 'app-good-dialog',
+  templateUrl: './good-dialog.html',
+  styleUrl: './good-dialog.css'
+})
+export class GoodDialog {
+  readonly myDialog = viewChild.required<ElementRef<HTMLDialogElement>>('myDialog');
 
-open(): void {
-  this.myDialog().nativeElement.showModal(); // Браузер запустит штатные механизмы модальности
+  open(): void {
+    this.myDialog().nativeElement.showModal(); // Браузер запустит штатные механизмы модальности
+  }
 }
 ```
 
@@ -223,10 +301,10 @@ openSafe(): void {
 
 ```typescript
 // ОШИБКА: Если пользователь нажмет Escape, родительский компонент продолжит думать, что окно открыто
-// Шаблон: <dialog #myDialog>...</dialog>
+// В шаблоне: <dialog #myDialog>...</dialog>
 
 // ИСПРАВЛЕНИЕ: Прослушивание нативного события close для обратной синхронизации
-// Шаблон: <dialog #myDialog (close)="onClose()">...</dialog>
+// В шаблоне: <dialog #myDialog (close)="onClose()">...</dialog>
 onClose(): void {
   // Сообщаем родителю, что диалог закрыт нативным методом браузера
   this.dialogClosed.emit();

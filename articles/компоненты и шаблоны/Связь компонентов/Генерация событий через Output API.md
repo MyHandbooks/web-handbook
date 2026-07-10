@@ -1,6 +1,6 @@
 ---
 tags: [angular, компоненты-и-шаблоны, связь-компонентов]
-related: ["Входные свойства на Сигналах (input).md", "Поиск дочерних элементов (viewChild).md"]
+related: ["[[Входные свойства на Сигналах (input).md]]", "[[Поиск дочерних элементов (viewChild).md]]"]
 status: "completed"
 ---
 
@@ -21,6 +21,7 @@ status: "completed"
 ### Шаблон 1: Базовый функциональный Output со строгой типизацией данных
 *   **Назначение:** Передача структурированных сведений о выполненном действии `TargetEventPayload` из дочерней карточки в родительский контекст.
 
+#### 1. Файл логики: `child-event-card.ts`
 ```typescript
 import { Component, ChangeDetectionStrategy, output } from '@angular/core';
 
@@ -32,22 +33,11 @@ export interface TargetEventPayload {
 
 @Component({
   selector: 'app-child-event-card',
-  standalone: true,
-  imports: [],
-  template: `
-    <div class="event-card">
-      <p>Панель управления дочернего элемента</p>
-      <!-- Запуск методов генерации событий при кликах -->
-      <button (click)="emitActionEvent('CONFIRM_CLICK')">Подтвердить действие</button>
-      <button (click)="emitActionEvent('CANCEL_CLICK')">Отменить</button>
-    </div>
-  `,
-  styles: [`
-    .event-card { border: 1px solid var(--border); padding: 15px; border-radius: 8px; }
-  `],
+  templateUrl: './child-event-card.html',
+  styleUrl: './child-event-card.css',
   changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class ChildEventCardComponent {
+export class ChildEventCard { // Имя класса не содержит суффикса Component
   // Объявление канала событий с помощью функции output() вне конструктора.
   // Автоматически генерируется строго типизированный экземпляр OutputRef<TargetEventPayload>.
   readonly actionTriggered = output<TargetEventPayload>();
@@ -65,11 +55,42 @@ export class ChildEventCardComponent {
 }
 ```
 
+#### 2. Файл разметки: `child-event-card.html`
+```html
+<div class="event-card">
+  <p>Панель управления дочернего элемента</p>
+  <!-- Запуск методов генерации событий при кликах -->
+  <button (click)="emitActionEvent('CONFIRM_CLICK')">Подтвердить действие</button>
+  <button (click)="emitActionEvent('CANCEL_CLICK')">Отменить</button>
+</div>
+```
+
+#### 3. Файл стилей: `child-event-card.css`
+```css
+.event-card {
+  border: 1px solid var(--border);
+  padding: 15px;
+  border-radius: 8px;
+  background-color: var(--bg-secondary);
+}
+
+button {
+  margin-right: 8px;
+  padding: 8px 12px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  background-color: var(--bg-primary);
+  color: var(--text-normal);
+  cursor: pointer;
+}
+```
+
 ---
 
 ### Шаблон 2: Прямая трансляция RxJS-потоков в Output (`outputFromObservable`)
 *   **Назначение:** Автоматический экспорт данных из реактивного RxJS-потока (например, фонового интервального таймера) во внешний родительский компонент.
 
+#### 1. Файл логики: `child-stream-sender.ts`
 ```typescript
 import { Component, ChangeDetectionStrategy, inject, DestroyRef } from '@angular/core';
 import { outputFromObservable } from '@angular/core/rxjs-interop';
@@ -77,19 +98,11 @@ import { interval, map, takeUntil, Observable } from 'rxjs';
 
 @Component({
   selector: 'app-child-stream-sender',
-  standalone: true,
-  imports: [],
-  template: `
-    <div class="stream-panel">
-      <p>Дочерний таймер активен в фоновом режиме...</p>
-    </div>
-  `,
-  styles: [`
-    .stream-panel { padding: 12px; border-left: 4px solid var(--accent); }
-  `],
+  templateUrl: './child-stream-sender.html',
+  styleUrl: './child-stream-sender.css',
   changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class ChildStreamSenderComponent {
+export class ChildStreamSender {
   // Внедрение ссылки на системный контекст уничтожения компонента
   private readonly destroyRef = inject(DestroyRef);
 
@@ -108,6 +121,22 @@ export class ChildStreamSenderComponent {
   // Декларативная привязка RxJS-потока к Output API.
   // Angular сам выполнит подписку при инициализации и закроет ее при уничтожении.
   readonly tickEmitted = outputFromObservable<string>(this.timer$);
+}
+```
+
+#### 2. Файл разметки: `child-stream-sender.html`
+```html
+<div class="stream-panel">
+  <p>Дочерний таймер активен в фоновом режиме...</p>
+</div>
+```
+
+#### 3. Файл стилей: `child-stream-sender.css`
+```css
+.stream-panel {
+  padding: 12px;
+  border-left: 4px solid var(--accent);
+  background-color: var(--bg-secondary);
 }
 ```
 
@@ -132,7 +161,7 @@ export class ChildStreamSenderComponent {
 2.  **`outputToObservable(outputRef)`**: Позволяет родительскому компоненту или сервису превратить стандартный `OutputRef` обратно в RxJS `Observable`. Это удобно, если родитель хочет применить к событиям ребенка операторы фильтрации или подавления дребезга (например, `.pipe(debounceTime(300))`).
 
 ### 3. Пошаговый разбор выполнения передачи события
-Когда пользователь нажимает кнопку в `ChildEventCardComponent`:
+Когда пользователь нажимает кнопку в `ChildEventCard`:
 1.  **Вызов обработчика клика:** Срабатывает нативный метод `emitActionEvent('CONFIRM_CLICK')`.
 2.  **Формирование пакета данных:** Создается немутабельный объект `TargetEventPayload` со штампом времени.
 3.  **Вызов `output.emit()`:** Метод `emit()` обращается к внутреннему реестру слушателей `OutputRef`.
@@ -171,20 +200,30 @@ onParentHandleCorrectly(event: TargetEventPayload): void {
 
 ```typescript
 // ОШИБКА: Ошибка в потоке убьет Output окончательно
-private readonly unsafeStream$ = this.http.get('/api').pipe();
-readonly dataReceived = outputFromObservable(this.unsafeStream$);
+// private readonly unsafeStream$ = this.http.get('/api').pipe();
+// readonly dataReceived = outputFromObservable(this.unsafeStream$);
 
 // ИСПРАВЛЕНИЕ: Изоляция ошибки и возвращение стабильного потока
 import { catchError, EMPTY } from 'rxjs';
 
-private readonly safeStream$ = this.http.get('/api').pipe(
-  catchError(error => {
-    console.error('Сбой получения данных в Output:', error);
-    // EMPTY завершает текущий HTTP-запрос, но сохраняет конвейер работоспособным
-    return EMPTY; 
-  })
-);
-readonly dataReceivedSafe = outputFromObservable(this.safeStream$);
+@Component({
+  selector: 'app-safe-stream-sender',
+  templateUrl: './safe-stream-sender.html',
+  styleUrl: './safe-stream-sender.css'
+})
+export class SafeStreamSender {
+  private readonly http = inject(HttpClient);
+  
+  private readonly safeStream$ = this.http.get<string[]>('/api').pipe(
+    catchError(error => {
+      console.error('Сбой получения данных в Output:', error);
+      // EMPTY завершает текущий HTTP-запрос, но сохраняет конвейер работоспособным
+      return EMPTY; 
+    })
+  );
+  
+  readonly dataReceivedSafe = outputFromObservable(this.safeStream$);
+}
 ```
 
 *   **Ошибка 3: Передача сырых нативных браузерных событий (`PointerEvent`) вместо абстрактных пакетов**
@@ -194,15 +233,21 @@ readonly dataReceivedSafe = outputFromObservable(this.safeStream$);
 
 ```typescript
 // ОШИБКА: Проброс сырого PointerEvent наружу
-// Шаблон: <button (click)="clickOutput.emit($event)">Отправить</button>
-readonly clickOutput = output<PointerEvent>();
+// В шаблоне: <button (click)="clickOutput.emit($event)">Отправить</button>
+// readonly clickOutput = output<PointerEvent>();
 
 // ИСПРАВЛЕНИЕ: Передача очищенной абстрактной бизнес-информации
-// Шаблон: <button (click)="handleCleanClick()">Отправить</button>
-readonly clickOutputClean = output<string>();
+@Component({
+  selector: 'app-clean-button',
+  templateUrl: './clean-button.html',
+  styleUrl: './clean-button.css'
+})
+export class CleanButton {
+  readonly clickOutputClean = output<string>();
 
-handleCleanClick(): void {
-  // Передаем родителю только то, что ему действительно нужно знать
-  this.clickOutputClean.emit('SUBMIT_FORM_ACTION');
+  handleCleanClick(): void {
+    // Передаем родителю только то, что ему действительно нужно знать
+    this.clickOutputClean.emit('SUBMIT_FORM_ACTION');
+  }
 }
 ```

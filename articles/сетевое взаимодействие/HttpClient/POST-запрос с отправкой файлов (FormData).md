@@ -1,6 +1,6 @@
 ---
 tags: [angular, сетевое-взаимодействие, HttpClient]
-related: ["[[Безопасный GET-запрос со сложными параметрами (HttpParams).md]]", "[[Обработка сетевых ошибок и авто-повтор (Retry).md]]"]
+related: ["[[Безопасный GET-запрос со сложными параметрами.md]]", "[[Обработка сетевых ошибок и авто-повтор (Retry).md]]"]
 status: "completed"
 ---
 
@@ -23,7 +23,7 @@ status: "completed"
 
 ```typescript
 import { Injectable, inject } from '@angular/core';
-import { HttpClient, HttpEvent, HttpEventType, HttpRequest, HttpResponse } from '@angular/common/http';
+import { HttpClient, HttpEvent, HttpEventType, HttpRequest } from '@angular/common/http';
 import { Observable, map, filter } from 'rxjs';
 
 // Описываем типизированную структуру текстовых метаданных
@@ -52,14 +52,14 @@ export class FileUploadService {
 
   /**
    * Инициирует загрузку файла на сервер с отслеживанием прогресса
-   * @param file Обьект бинарного файла из формы выбора
+   * @param file Объект бинарного файла из формы выбора
    * @param metadata Сопутствующие текстовые параметры
    */
   public uploadDocument(file: File, metadata: FileUploadMetadata): Observable<UploadProgressState> {
     // Конструируем экземпляр FormData для упаковки разнородных данных
     const formData = new FormData();
 
-    // Добавляем бинарный файл. Третий параметр явно задает имя файла для сервера
+    // Добавляем бинарный файл. Третий параметр явно задает оригинальное имя файла для сервера
     formData.append('documentFile', file, file.name);
 
     // Добавляем сопутствующие текстовые поля. Примитивы приводим к строковому типу
@@ -121,64 +121,21 @@ export class FileUploadService {
 ### Шаблон 2: Интерактивный компонент выбора и загрузки файлов на Сигналах
 *   **Назначение:** UI-компонент, обрабатывающий системный выбор файлов, хранящий локальное состояние через сигналы и визуализирующий шкалу загрузки.
 
+#### 1. Файл логики: `file-uploader.ts`
 ```typescript
-import { Component, ElementRef, viewChild, signal, inject, DestroyRef } from '@angular/core';
+import { Component, ElementRef, viewChild, signal, inject, DestroyRef, ChangeDetectionStrategy } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FileUploadService, UploadProgressState } from './file-upload.service';
 
 @Component({
   selector: 'app-file-uploader',
-  standalone: true,
-  template: `
-    <div class="upload-container">
-      <!-- Скрытый нативный input для вызова системного проводника -->
-      <input 
-        type="file" 
-        #fileInputRef
-        style="display: none" 
-        (change)="onFileSelected($event)"
-        accept="image/*,application/pdf"
-      />
-
-      <!-- Кастомная кнопка запуска выбора файлов -->
-      <button 
-        class="action-btn" 
-        [disabled]="currentUploadState().isUploading"
-        (click)="triggerFileSelection()"
-      >
-        Выбрать документ
-      </button>
-
-      <!-- Отображение текущего имени файла и прогресс-бара -->
-      @if (currentUploadState().fileName; as name) {
-        <div class="file-info-card">
-          <p class="file-name">Файл: {{ name }}</p>
-          
-          @if (currentUploadState().isUploading) {
-            <div class="progress-bar-track">
-              <div 
-                class="progress-bar-fill" 
-                [style.width.%]="currentUploadState().percentage"
-              ></div>
-            </div>
-            <span class="progress-text">Загружено: {{ currentUploadState().percentage }}%</span>
-          }
-
-          @if (currentUploadState().isSuccess) {
-            <p class="success-message">Документ успешно сохранен в облаке!</p>
-          }
-        </div>
-      }
-    </div>
-  `,
-  styles: [`
-    .upload-container { display: flex; flex-direction: column; gap: 12px; max-width: 400px; }
-    .progress-bar-track { width: 100%; height: 8px; background-color: var(--border); border-radius: 4px; overflow: hidden; margin-top: 8px; }
-    .progress-bar-fill { height: 100%; background-color: var(--accent); transition: width 0.1s linear; }
-    .success-message { color: var(--success-text); font-weight: 600; font-size: 0.9rem; margin-top: 8px; }
-  `]
+  // standalone: true опускается по умолчанию в Angular 19+
+  imports: [], // Массив импортов пуст, так как используются только нативные элементы и встроенный Control Flow
+  templateUrl: './file-uploader.html',
+  styleUrl: './file-uploader.css',
+  changeDetection: ChangeDetectionStrategy.OnPush // OnPush гарантирует перерисовку только при изменении сигналов
 })
-export class FileUploaderComponent {
+export class FileUploader { // Имя класса очищено от устаревшего суффикса Component
   private readonly uploadService = inject(FileUploadService);
   private readonly destroyRef = inject(DestroyRef);
 
@@ -260,6 +217,123 @@ export class FileUploaderComponent {
 }
 ```
 
+#### 2. Файл разметки: `file-uploader.html`
+```html
+<div class="upload-container">
+  <!-- Скрытый нативный input для вызова системного проводника -->
+  <input 
+    type="file" 
+    #fileInputRef
+    style="display: none" 
+    (change)="onFileSelected($event)"
+    accept="image/*,application/pdf"
+  />
+
+  <!-- Кастомная кнопка запуска выбора файлов -->
+  <button 
+    class="action-btn" 
+    [disabled]="currentUploadState().isUploading"
+    (click)="triggerFileSelection()"
+  >
+    Выбрать документ
+  </button>
+
+  <!-- Отображение текущего имени файла и прогресс-бара -->
+  @if (currentUploadState().fileName; as name) {
+    <div class="file-info-card">
+      <p class="file-name">Файл: {{ name }}</p>
+      
+      @if (currentUploadState().isUploading) {
+        <div class="progress-bar-track">
+          <div 
+            class="progress-bar-fill" 
+            [style.width.%]="currentUploadState().percentage"
+          ></div>
+        </div>
+        <span class="progress-text">Загружено: {{ currentUploadState().percentage }}%</span>
+      }
+
+      @if (currentUploadState().isSuccess) {
+        <p class="success-message">Документ успешно сохранен в облаке!</p>
+      }
+    </div>
+  }
+</div>
+```
+
+#### 3. Файл стилей: `file-uploader.css`
+```css
+.upload-container {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-width: 400px;
+}
+
+.progress-bar-track {
+  width: 100%;
+  height: 8px;
+  background-color: var(--border);
+  border-radius: 4px;
+  overflow: hidden;
+  margin-top: 8px;
+}
+
+.progress-bar-fill {
+  height: 100%;
+  background-color: var(--accent);
+  transition: width 0.1s linear;
+}
+
+.success-message {
+  color: var(--success-text);
+  font-weight: 600;
+  font-size: 0.9rem;
+  margin-top: 8px;
+}
+
+.file-info-card {
+  padding: 12px;
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  margin-top: 8px;
+}
+
+.file-name {
+  font-size: 0.9rem;
+  font-weight: 500;
+  word-break: break-all;
+}
+
+.progress-text {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  display: inline-block;
+  margin-top: 4px;
+}
+
+.action-btn {
+  padding: 10px 16px;
+  background-color: var(--accent);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: background-color var(--transition-speed);
+}
+
+.action-btn:hover {
+  background-color: var(--accent-hover);
+}
+
+.action-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+```
+
 ---
 
 ## ГЛУБОКОЕ ПОГРУЖЕНИЕ
@@ -303,7 +377,7 @@ formData.append('meta', metadata); // Ошибка сериализации!
 
 Для корректной передачи связанных структурированных данных внутри `multipart/form-data` необходимо использовать один из двух подходов:
 1.  **Поклеточный разбор:** Плоские свойства объекта раскладываются по отдельным текстовым ключам `FormData` (как показано в Шаблоне 1).
-2.  **JSON- Blob подход:** Сложный объект сериализуется в JSON-строку и упаковывается в мини-блоб с явным указанием его типа контента:
+2.  **JSON-Blob подход:** Сложный объект сериализуется в JSON-строку и упаковывается в мини-блоб с явным указанием его типа контента:
     ```typescript
     const metaBlob = new Blob([JSON.stringify(complexObject)], { 
       type: 'application/json' 

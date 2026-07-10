@@ -21,27 +21,17 @@ status: "completed"
 ### Шаблон 1: Базовые и обязательные сигнальные инпуты с декларативным вычислением
 *   **Назначение:** Описание передачи обязательных и необязательных параметров дочернему компоненту с последующей мемоизацией производного состояния.
 
+#### 1. Файл логики: `child-signal-input.ts`
 ```typescript
 import { Component, ChangeDetectionStrategy, input, computed } from '@angular/core';
 
 @Component({
   selector: 'app-child-signal-input',
-  standalone: true,
-  imports: [],
-  template: `
-    <div class="card">
-      <!-- Сигнальные инпуты в шаблоне считываются как обычные функции-сигналы -->
-      <h3>Ресурс: {{ resourceName() }}</h3>
-      <p>Идентификатор доступа: {{ accessCode() }}</p>
-      <p>Форматированный заголовок: {{ uppercaseTitle() }}</p>
-    </div>
-  `,
-  styles: [`
-    .card { border: 1px solid var(--border); padding: 16px; border-radius: 8px; }
-  `],
+  templateUrl: './child-signal-input.html',
+  styleUrl: './child-signal-input.css',
   changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class ChildSignalInputComponent {
+export class ChildSignalInput { // Имя класса не содержит суффикса Component
   // 1. Необязательный инпут с дефолтным строковым значением. Автоматически выводится тип InputSignal<string>
   readonly resourceName = input<string>('Безымянный ресурс');
 
@@ -55,11 +45,32 @@ export class ChildSignalInputComponent {
 }
 ```
 
+#### 2. Файл разметки: `child-signal-input.html`
+```html
+<div class="card">
+  <!-- Сигнальные инпуты в шаблоне считываются как обычные функции-сигналы -->
+  <h3>Ресурс: {{ resourceName() }}</h3>
+  <p>Идентификатор доступа: {{ accessCode() }}</p>
+  <p>Форматированный заголовок: {{ uppercaseTitle() }}</p>
+</div>
+```
+
+#### 3. Файл стилей: `child-signal-input.css`
+```css
+.card {
+  border: 1px solid var(--border);
+  padding: 16px;
+  border-radius: 8px;
+  background-color: var(--bg-secondary);
+}
+```
+
 ---
 
 ### Шаблон 2: Сигнальные инпуты с функциями трансформации данных (Transforms)
 *   **Назначение:** Преобразование типов входящих значений «на лету» (например, приведение строковых атрибутов HTML к логическим флагам или массивам).
 
+#### 1. Файл логики: `child-transformed-input.ts`
 ```typescript
 import { Component, ChangeDetectionStrategy, input, booleanAttribute, numberAttribute } from '@angular/core';
 
@@ -73,28 +84,11 @@ function splitTags(value: string | string[]): string[] {
 
 @Component({
   selector: 'app-child-transformed-input',
-  standalone: true,
-  imports: [],
-  template: `
-    <div class="settings-panel">
-      <!-- Чтение обработанных данных в шаблоне -->
-      <p>Режим отладки: <strong>{{ isDebugActive() ? 'Включен' : 'Выключен' }}</strong></p>
-      <p>Лимит соединений: {{ connectionLimit() }}</p>
-      
-      <div class="tags-container">
-        @for (tag of tags(); track tag) {
-          <span class="tag-badge">{{ tag }}</span>
-        }
-      </div>
-    </div>
-  `,
-  styles: [`
-    .settings-panel { padding: 15px; border-left: 4px solid var(--accent); }
-    .tag-badge { background-color: var(--nav-active); padding: 2px 6px; border-radius: 4px; margin-right: 6px; font-size: 0.8rem; }
-  `],
+  templateUrl: './child-transformed-input.html',
+  styleUrl: './child-transformed-input.css',
   changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class ChildTransformedInputComponent {
+export class ChildTransformedInput {
   // 1. Использование встроенной трансформации booleanAttribute.
   // Позволяет передавать атрибут просто флагом в HTML: <app-child-transformed-input isDebugActive />
   readonly isDebugActive = input(false, {
@@ -111,6 +105,39 @@ export class ChildTransformedInputComponent {
   readonly tags = input<string[], string | string[]>([], {
     transform: splitTags
   });
+}
+```
+
+#### 2. Файл разметки: `child-transformed-input.html`
+```html
+<div class="settings-panel">
+  <!-- Чтение обработанных данных в шаблоне -->
+  <p>Режим отладки: <strong>{{ isDebugActive() ? 'Включен' : 'Выключен' }}</strong></p>
+  <p>Лимит соединений: {{ connectionLimit() }}</p>
+  
+  <div class="tags-container">
+    @for (tag of tags(); track tag) {
+      <span class="tag-badge">{{ tag }}</span>
+    }
+  </div>
+</div>
+```
+
+#### 3. Файл стилей: `child-transformed-input.css`
+```css
+.settings-panel {
+  padding: 15px;
+  border-left: 4px solid var(--accent);
+  background-color: var(--bg-secondary);
+}
+
+.tag-badge {
+  background-color: var(--nav-active);
+  padding: 2px 6px;
+  border-radius: 4px;
+  margin-right: 6px;
+  font-size: 0.8rem;
+  color: var(--text-normal);
 }
 ```
 
@@ -155,12 +182,11 @@ HTML-атрибуты по своей природе всегда передаю
 import { Component, input, linkedSignal } from '@angular/core';
 
 @Component({
-  template: `
-    <p>Текущее имя: {{ localUserName() }}</p>
-    <button (click)="resetLocalName()">Сбросить локально</button>
-  `
+  selector: 'app-user-card',
+  templateUrl: './user-card.html',
+  styleUrl: './user-card.css'
 })
-export class UserCardComponent {
+export class UserCard {
   // Входной неизменяемый сигнал от родителя
   readonly externalUserName = input.required<string>();
 
@@ -182,8 +208,12 @@ export class UserCardComponent {
 
 ```typescript
 // ОШИБКА: Императивный перехват изменений через OnChanges
-@Component({ ... })
-export class BadChangesComponent implements OnChanges {
+@Component({
+  selector: 'app-bad-changes',
+  templateUrl: './bad-changes.html',
+  styleUrl: './bad-changes.css'
+})
+export class BadChanges implements OnChanges {
   readonly maxLimit = input<number>(100);
   formattedLimit = '';
 
@@ -195,8 +225,12 @@ export class BadChangesComponent implements OnChanges {
 }
 
 // ИСПРАВЛЕНИЕ: Полностью декларативное реактивное связывание без OnChanges
-@Component({ ... })
-export class GoodChangesComponent {
+@Component({
+  selector: 'app-good-changes',
+  templateUrl: './good-changes.html',
+  styleUrl: './good-changes.css'
+})
+export class GoodChanges {
   readonly maxLimit = input<number>(100);
 
   // Значение всегда актуально, строго типизировано и обновляется автоматически
@@ -216,16 +250,19 @@ export interface UserPayload {
 }
 
 @Component({
-  template: `
-    <!-- ОШИБКА: Если пользователь не передан, произойдет падение рендеринга -->
-    <p>Роль: {{ user().role }}</p>
-    
-    <!-- ИСПРАВЛЕНИЕ 1: Безопасное чтение nullable-сигнала -->
-    <p>Роль: {{ user()?.role ?? 'Гость' }}</p>
-  `
+  selector: 'app-profile-card',
+  templateUrl: './profile-card.html',
+  styleUrl: './profile-card.css'
 })
-export class ProfileCardComponent {
+export class ProfileCard {
   // Сигнал возвращает тип UserPayload | undefined
   readonly user = input<UserPayload>();
 }
+```
+```html
+<!-- ОШИБКА: Если пользователь не передан, произойдет падение рендеринга -->
+<!-- <p>Роль: {{ user().role }}</p> -->
+
+<!-- ИСПРАВЛЕНИЕ 1: Безопасное чтение nullable-сигнала -->
+<p>Роль: {{ user()?.role ?? 'Гость' }}</p>
 ```

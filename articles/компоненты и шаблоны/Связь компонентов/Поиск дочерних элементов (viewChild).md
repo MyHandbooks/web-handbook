@@ -1,6 +1,7 @@
 ---
+path: "articles/компоненты и шаблоны/Связь компонентов/Поиск дочерних элементов (viewChild).md"
 tags: [angular, компоненты-и-шаблоны, связь-компонентов]
-related: ["Входные свойства на Сигналах (input).md", "Генерация событий через Output API.md"]
+related: ["[[Входные свойства на Сигналах (input).md]]", "[[Генерация событий через Output API.md]]"]
 status: "completed"
 ---
 
@@ -21,39 +22,54 @@ status: "completed"
 ### Шаблон 1: Строго типизированный поиск компонента через `viewChild.required`
 *   **Назначение:** Получение гарантированной ссылки на экземпляр дочернего компонента для программного вызова его публичного метода `executeAction()`.
 
+#### 1. Файл логики дочернего компонента: `child-worker.ts`
 ```typescript
-import { Component, ChangeDetectionStrategy, viewChild } from '@angular/core';
+import { Component, ChangeDetectionStrategy } from '@angular/core';
 
 @Component({
   selector: 'app-child-worker',
-  standalone: true,
-  template: `<div class="worker">Инструмент готов к работе.</div>`,
+  templateUrl: './child-worker.html',
+  styleUrl: './child-worker.css',
   changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class ChildWorkerComponent {
+export class ChildWorker { // Имя класса не содержит суффикса Component
   // Публичный метод, который родитель планирует вызвать программно
   executeAction(param: string): void {
     console.log(`Дочерний воркер выполнил задачу: ${param}`);
   }
 }
+```
+
+#### 2. Файл разметки дочернего компонента: `child-worker.html`
+```html
+<div class="worker">Инструмент готов к работе.</div>
+```
+
+#### 3. Файл стилей дочернего компонента: `child-worker.css`
+```css
+.worker {
+  padding: 10px;
+  background-color: var(--bg-secondary);
+  border-radius: 4px;
+}
+```
+
+#### 4. Файл логики родительского компонента: `parent-controller.ts`
+```typescript
+import { Component, ChangeDetectionStrategy, viewChild } from '@angular/core';
+import { ChildWorker } from './child-worker';
 
 @Component({
   selector: 'app-parent-controller',
-  standalone: true,
-  imports: [ChildWorkerComponent],
-  template: `
-    <div class="panel">
-      <!-- Размещение дочернего компонента в шаблоне родителя -->
-      <app-child-worker />
-      <button (click)="triggerChildAction()">Запустить задачу ребенка</button>
-    </div>
-  `,
+  imports: [ChildWorker], // Импортируем дочерний класс напрямую
+  templateUrl: './parent-controller.html',
+  styleUrl: './parent-controller.css',
   changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class ParentControllerComponent {
+export class ParentController {
   // Определение обязательного запроса дочернего компонента по его классу.
-  // Использование .required гарантирует, что тип сигнала будет ChildWorkerComponent без undefined.
-  readonly workerComponent = viewChild.required(ChildWorkerComponent);
+  // Использование .required гарантирует, что тип сигнала будет ChildWorker без undefined.
+  readonly workerComponent = viewChild.required(ChildWorker);
 
   triggerChildAction(): void {
     // Безопасный вызов метода дочернего компонента. 
@@ -63,28 +79,41 @@ export class ParentControllerComponent {
 }
 ```
 
+#### 5. Файл разметки родительского компонента: `parent-controller.html`
+```html
+<div class="panel">
+  <!-- Размещение дочернего компонента в шаблоне родителя -->
+  <app-child-worker />
+  <button (click)="triggerChildAction()">Запустить задачу ребенка</button>
+</div>
+```
+
+#### 6. Файл стилей родительского компонента: `parent-controller.css`
+```css
+.panel {
+  padding: 20px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+```
+
 ---
 
 ### Шаблон 2: Поиск нативного HTML-элемента с опцией чтения (read) и эффектом
 *   **Назначение:** Получение ссылки на нативный HTML-элемент `ElementRef` с помощью строкового селектора шаблона для управления фокусом инпута внутри реактивного эффекта.
 
+#### 1. Файл логики: `focus-controller.ts`
 ```typescript
 import { Component, ChangeDetectionStrategy, viewChild, ElementRef, effect } from '@angular/core';
 
 @Component({
   selector: 'app-focus-controller',
-  standalone: true,
   imports: [],
-  template: `
-    <div class="form-group">
-      <!-- Локальная переменная шаблона #textInput указывает на нативный элемент -->
-      <input #textInput type="text" placeholder="Введите имя..." class="theme-input">
-      <button (click)="focusOnInput()">Установить фокус вручную</button>
-    </div>
-  `,
+  templateUrl: './focus-controller.html',
+  styleUrl: './focus-controller.css',
   changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class FocusControllerComponent {
+export class FocusController {
   // Поиск элемента по его строковому маркеру '#textInput'.
   // Опция { read: ElementRef } сообщает Angular о необходимости вернуть обертку ElementRef,
   // предоставляющую прямой доступ к нативному DOM-узлу.
@@ -96,7 +125,7 @@ export class FocusControllerComponent {
     // Реактивный эффект отслеживает изменения и готов работать с элементом
     effect(() => {
       const elementRef = this.inputEl();
-      // Выполняем логгирование или базовые настройки при доступности узла в DOM
+      // Выполняем логирование или базовые настройки при доступности узла в DOM
       if (elementRef) {
         console.log('Нативный HTML-элемент успешно привязан к сигнальному графу:', elementRef.nativeElement);
       }
@@ -107,6 +136,24 @@ export class FocusControllerComponent {
     // Безопасное обращение к нативному API браузера для установки фокуса
     this.inputEl().nativeElement.focus();
   }
+}
+```
+
+#### 2. Файл разметки: `focus-controller.html`
+```html
+<div class="form-group">
+  <!-- Локальная переменная шаблона #textInput указывает на нативный элемент -->
+  <input #textInput type="text" placeholder="Введите имя..." class="theme-input">
+  <button (click)="focusOnInput()">Установить фокус вручную</button>
+</div>
+```
+
+#### 3. Файл стилей: `focus-controller.css`
+```css
+.form-group {
+  display: flex;
+  gap: 10px;
+  padding: 16px;
 }
 ```
 
@@ -129,7 +176,7 @@ export class FocusControllerComponent {
 Однако часто структура шаблона является статической, и элемент присутствует на экране всегда. Для таких случаев спроектирован метод `viewChild.required`. Он гарантирует компилятору, что элемент будет найден, и исключает `undefined` из возвращаемого типа. Если Angular по какой-то причине не сможет обнаружить элемент во время инициализации шаблона, он мгновенно выбросит понятную ошибку в консоль браузера, не маскируя баг в коде.
 
 ### 3. Пошаговый разбор выполнения поиска и обновления ссылки
-В процессе рендеринга `FocusControllerComponent` выполняются следующие шаги:
+В процессе рендеринга `FocusController` выполняются следующие шаги:
 1.  **Создание пустого реактивного узла:** При инициализации класса компонента `viewChild` регистрирует пустой сигнал со значением `undefined`.
 2.  **Первичный проход шаблона (Рендеринг):** Ivy строит DOM-дерево и находит тег `input` с маркером `#textInput`.
 3.  **Анализ метаданных запросов:** По завершении фазы отрисовки шаблона Angular считывает маркер, оборачивает его в `ElementRef` (согласно инструкции `read`) и записывает значение в созданный ранее сигнал.
@@ -145,19 +192,37 @@ export class FocusControllerComponent {
     *   *Решение:* Читать сигналы запросов внутри реактивных эффектов `effect()`, хука `ngAfterViewInit`, либо в ответ на интерактивные действия пользователя (клики, ввод).
 
 ```typescript
-// ОШИБКА: Попытка прочитать DOM-элемент до его отрисовки
-ngOnInit(): void {
-  // Элемент еще не создан! Произойдет runtime crash в случае required
-  const el = this.inputEl().nativeElement; 
+// ПЛОХО (Попытка прочитать DOM-элемент до его отрисовки)
+@Component({
+  selector: 'app-bad',
+  templateUrl: './bad.html',
+  styleUrl: './bad.css'
+})
+export class Bad implements OnInit {
+  readonly inputEl = viewChild.required<ElementRef<HTMLInputElement>>('textInput');
+
+  ngOnInit(): void {
+    // Элемент еще не создан! Произойдет runtime crash в случае required
+    // const el = this.inputEl().nativeElement; 
+  }
 }
 
-// ИСПРАВЛЕНИЕ: Чтение внутри безопасной реактивной зоны эффекта
-constructor() {
-  effect(() => {
-    // Эффект гарантированно сработает только тогда, когда сигнал получит значение
-    const nativeEl = this.inputEl().nativeElement;
-    console.log('Элемент готов к работе:', nativeEl);
-  });
+// ХОРОШО (Чтение внутри безопасной реактивной зоны эффекта)
+@Component({
+  selector: 'app-good',
+  templateUrl: './good.html',
+  styleUrl: './good.css'
+})
+export class Good {
+  readonly inputEl = viewChild.required<ElementRef<HTMLInputElement>>('textInput');
+
+  constructor() {
+    effect(() => {
+      // Эффект гарантированно сработает только тогда, когда сигнал получит значение
+      const nativeEl = this.inputEl().nativeElement;
+      console.log('Элемент готов к работе:', nativeEl);
+    });
+  }
 }
 ```
 
@@ -167,11 +232,11 @@ constructor() {
     *   *Решение:* Передавать конфигурационный объект `{ read: ElementRef }` в качестве второго аргумента функции запроса.
 
 ```typescript
-// ОШИБКА: Запрос вернет экземпляр класса ChildComponent, а не HTML-узел
-readonly childComponent = viewChild('child');
+// ОШИБКА: Запрос вернет экземпляр класса Child, а не HTML-узел
+// readonly childComponent = viewChild('child');
 
 // ИСПРАВЛЕНИЕ: Явное указание на необходимость извлечь ElementRef
-readonly childDomNode = viewChild('child', { read: ElementRef });
+// readonly childDomNode = viewChild('child', { read: ElementRef });
 ```
 
 *   **Ошибка 3: Потеря ссылок и утечки при динамическом переключении Control Flow**
@@ -181,9 +246,11 @@ readonly childDomNode = viewChild('child', { read: ElementRef });
 
 ```typescript
 constructor() {
+  const inputEl = this.inputEl;
+
   // ИСПРАВЛЕНИЕ: Очищающий эффект для интеграции с внешними JS-библиотеками
   effect((onCleanup) => {
-    const elementRef = this.inputEl();
+    const elementRef = inputEl();
 
     if (elementRef) {
       // Инициализируем сторонний плагин на найденном элементе

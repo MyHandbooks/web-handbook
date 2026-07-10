@@ -21,7 +21,7 @@ status: "completed"
 ## ПРАКТИЧЕСКИЕ ШАБЛОНЫ ДЛЯ КОПИРОВАНИЯ
 
 ### Шаблон 1: Реактивный сервис состояния (Service-Store Pattern)
-*   **Назначение:** Организация безопасного однонаправленного потока данных (Unidirectional Data Flow) внутри глобальной службы, где состояние защищено от прямой модификации извне.
+*   **Назначение:** Организация безопасного однонаправленного потока данных (Unidirectional Data Flow) внутри службы, где состояние защищено от прямой модификации извне.
 
 ```typescript
 import { Injectable } from '@angular/core';
@@ -145,27 +145,24 @@ export class ProductSearchService {
 ### Шаблон 3: Декларативный рендеринг состояния в компоненте через AsyncPipe
 *   **Назначение:** Чтение реактивного потока сервиса в UI-компоненте с автоматическим управлением подписками на уровне шаблона.
 
+#### 1. Файл логики: `cart-preview.ts`
 ```typescript
-import { Component, inject } from '@angular/core';
+import { Component, inject, ChangeDetectionStrategy } from '@angular/core';
 import { AsyncPipe, CurrencyPipe } from '@angular/common';
 import { UserCartStateService } from './user-cart-state.service';
 
 @Component({
   selector: 'app-cart-preview',
-  standalone: true,
-  imports: [AsyncPipe, CurrencyPipe],
-  template: `
-    <div class="cart-box">
-      <!-- Подписываемся на реактивные потоки через AsyncPipe -->
-      <p>Количество товаров: <b>{{ cartCount$ | async }}</b></p>
-      <p>Сумма к оплате: <b>{{ totalPrice$ | async | currency }}</b></p>
-
-      <button (click)="addProduct()">Добавить демо-товар</button>
-      <button (click)="clear()">Очистить корзину</button>
-    </div>
-  `
+  // standalone: true опускается по умолчанию начиная с v19
+  imports: [
+    AsyncPipe,    // Позволяет декларативно подписываться прямо в HTML-шаблоне
+    CurrencyPipe  // Форматирует число в валюту
+  ],
+  templateUrl: './cart-preview.html',
+  styleUrl: './cart-preview.css',
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class CartPreviewComponent {
+export class CartPreview { // Имя класса очищено от суффикса Component
   private readonly cartService = inject(UserCartStateService);
 
   // Передаем ссылки на холодные потоки напрямую в шаблон
@@ -183,6 +180,34 @@ export class CartPreviewComponent {
   public clear(): void {
     this.cartService.clearCart();
   }
+}
+```
+
+#### 2. Файл разметки: `cart-preview.html`
+```html
+<div class="cart-box">
+  <!-- Подписываемся на реактивные потоки через AsyncPipe -->
+  <p>Количество товаров: <b>{{ cartCount$ | async }}</b></p>
+  <p>Сумма к оплате: <b>{{ totalPrice$ | async | currency }}</b></p>
+
+  <button (click)="addProduct()">Добавить демо-товар</button>
+  <button (click)="clear()">Очистить корзину</button>
+</div>
+```
+
+#### 3. Файл стилей: `cart-preview.css`
+```css
+.cart-box {
+  padding: 16px;
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+button {
+  margin-right: 8px;
+  padding: 8px 12px;
+  cursor: pointer;
+  border-radius: 6px;
 }
 ```
 
@@ -255,7 +280,7 @@ this.state$.next({
 ```
 
 *   **Ошибка 2: Утечка памяти при ручной подписке внутри компонентов**
-    *   *Симптомы:* Медленный рост потребления оперативной памяти вкладкой браузера при переходах по страницам. Поведение приложения дублируется или ломается после длительной работы.
+    *   *Симптомы:* Медленный рост потеребительской памяти (Heap) браузера при переходах по страницам. Поведение приложения дублируется или ломается после длительной работы.
     *   *Физика процесса:* Разработчик вызывает `.subscribe()` внутри компонента и забывает сохранить подписку для её последующего уничтожения. Поскольку BehaviorSubject в синглтон-сервисе живет вечно, он продолжает удерживать ссылки на коллбэки подписок уничтоженных компонентов в куче памяти (Heap), блокируя работу сборщика мусора.
     *   *Решение:* По возможности используйте `AsyncPipe` в шаблоне (как в Шаблоне 3) — он управляет жизненным циклом подписки автоматически. Если ручная подписка в классе неизбежна, обязательно завершайте её через `takeUntilDestroyed()`.
 
@@ -264,9 +289,22 @@ this.state$.next({
 // this.cartService.cartCount$.subscribe(count => { ... });
 
 // ИСПРАВЛЕНИЕ: Автоматическая отписка по DestroyRef
-this.cartService.cartCount$.pipe(
-  takeUntilDestroyed(this.destroyRef)
-).subscribe(count => { ... });
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+
+@Component({
+  selector: 'app-profile-feature',
+  templateUrl: './profile-feature.html',
+  styleUrl: './profile-feature.css'
+})
+export class ProfileFeature {
+  private readonly cartService = inject(UserCartStateService);
+
+  constructor() {
+    this.cartService.cartCount$.pipe(
+      takeUntilDestroyed() // Angular автоматически отпишется при уничтожении
+    ).subscribe(count => console.log(count));
+  }
+}
 ```
 
 *   **Ошибка 3: Избыточное и нереактивное использование .getValue() для бизнес-логики**

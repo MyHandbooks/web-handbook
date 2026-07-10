@@ -24,24 +24,19 @@ status: "completed"
 ### Шаблон 1: Управление примитивным состоянием (Переключатели и счетчики)
 *   **Назначение:** Реализация простейшего изменения атомарных типов данных (boolean, number, string) через методы `.set()` и `.update()`.
 
+#### 1. Файл логики: `simple-counter.ts`
 ```typescript
-import { Component, signal } from '@angular/core';
+import { Component, ChangeDetectionStrategy, signal } from '@angular/core';
 
 @Component({
   selector: 'app-simple-counter',
-  standalone: true,
-  template: `
-    <div class="card">
-      <p>Счетчик кликов: {{ clickCount() }}</p>
-      <p>Статус панели: {{ isPanelOpen() ? 'Активна' : 'Скрыта' }}</p>
-
-      <button (click)="increment()">Увеличить на 1</button>
-      <button (click)="togglePanel()">Переключить панель</button>
-      <button (click)="resetAll()">Сбросить всё</button>
-    </div>
-  `
+  // standalone: true опускается по умолчанию начиная с v19
+  imports: [],
+  templateUrl: './simple-counter.html',
+  styleUrl: './simple-counter.css',
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class SimpleCounterComponent {
+export class SimpleCounter { // Имя класса очищено от суффикса Component
   // Инициализируем изменяемый сигнал с начальным числовым значением
   public readonly clickCount = signal<number>(0);
   
@@ -74,13 +69,41 @@ export class SimpleCounterComponent {
 }
 ```
 
+#### 2. Файл разметки: `simple-counter.html`
+```html
+<div class="card">
+  <p>Счетчик кликов: {{ clickCount() }}</p>
+  <p>Статус панели: {{ isPanelOpen() ? 'Активна' : 'Скрыта' }}</p>
+
+  <button (click)="increment()">Увеличить на 1</button>
+  <button (click)="togglePanel()">Переключить панель</button>
+  <button (click)="resetAll()">Сбросить всё</button>
+</div>
+```
+
+#### 3. Файл стилей: `simple-counter.css`
+```css
+.card {
+  padding: 16px;
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+button {
+  margin-right: 8px;
+  padding: 6px 12px;
+  cursor: pointer;
+}
+```
+
 ---
 
 ### Шаблон 2: Иммутабельное обновление массивов (Добавление и удаление)
 *   **Назначение:** Добавление элементов в массив без прямой мутации ссылки, что критически важно для корректного срабатывания триггеров реактивности Angular.
 
+#### 1. Файл логики: `task-manager.ts`
 ```typescript
-import { Component, signal } from '@angular/core';
+import { Component, ChangeDetectionStrategy, signal } from '@angular/core';
 
 export interface TemporaryTask {
   id: string;
@@ -89,24 +112,12 @@ export interface TemporaryTask {
 
 @Component({
   selector: 'app-task-manager',
-  standalone: true,
-  template: `
-    <div class="manager">
-      <input type="text" #taskInput placeholder="Название таски" />
-      <button (click)="addTask(taskInput.value); taskInput.value = ''">Добавить</button>
-
-      <ul>
-        @for (task of tasks(); track task.id) {
-          <li>
-            {{ task.title }} 
-            <button (click)="removeTask(task.id)">Удалить</button>
-          </li>
-        }
-      </ul>
-    </div>
-  `
+  imports: [],
+  templateUrl: './task-manager.html',
+  styleUrl: './task-manager.css',
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class TaskManagerComponent {
+export class TaskManager {
   // Инициализируем массив объектов
   public readonly tasks = signal<TemporaryTask[]>([]);
 
@@ -137,13 +148,57 @@ export class TaskManagerComponent {
 }
 ```
 
+#### 2. Файл разметки: `task-manager.html`
+```html
+<div class="manager">
+  <div class="input-row">
+    <input type="text" #taskInput placeholder="Название таски" class="theme-input" />
+    <button (click)="addTask(taskInput.value); taskInput.value = ''" class="action-btn">Добавить</button>
+  </div>
+
+  <ul class="task-list">
+    @for (task of tasks(); track task.id) {
+      <li>
+        {{ task.title }} 
+        <button (click)="removeTask(task.id)" class="btn-delete">Удалить</button>
+      </li>
+    }
+  </ul>
+</div>
+```
+
+#### 3. Файл стилей: `task-manager.css`
+```css
+.manager {
+  padding: 16px;
+  background-color: var(--bg-secondary);
+  border-radius: 8px;
+}
+.input-row {
+  display: flex;
+  gap: 8px;
+}
+.task-list {
+  margin-top: 12px;
+  padding-left: 20px;
+}
+.btn-delete {
+  margin-left: 12px;
+  color: var(--error-text);
+  cursor: pointer;
+  background: none;
+  border: none;
+}
+```
+
 ---
 
 ### Шаблон 3: Сложный объект со встроенным кастомным сравнением (Deep Equality)
 *   **Назначение:** Описание сигнала, хранящего иерархический объект конфигурации, с защитой от лишних перерисовок DOM при обновлении ссылок на идентичные по структуре данные.
 
+#### 1. Файл логики: `theme-preview.ts`
 ```typescript
-import { Component, signal } from '@angular/core';
+import { Component, ChangeDetectionStrategy, signal } from '@angular/core';
 
 export interface ComponentThemeConfig {
   primaryColor: string;
@@ -152,16 +207,12 @@ export interface ComponentThemeConfig {
 
 @Component({
   selector: 'app-theme-preview',
-  standalone: true,
-  template: `
-    <div class="preview" [style.color]="theme().primaryColor">
-      Текущий радиус скругления: {{ theme().borderRadiusPx }}px
-      <button (click)="applyDarkTheme()">Включить темную тему</button>
-      <button (click)="applyIdenticalSettings()">Применить те же настройки</button>
-    </div>
-  `
+  imports: [],
+  templateUrl: './theme-preview.html',
+  styleUrl: './theme-preview.css',
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class ThemePreviewComponent {
+export class ThemePreview {
   // Инициализируем сигнал со вторым необязательным параметром конфигурации.
   // Передаем кастомную функцию сравнения equal для предотвращения ложных детекций.
   public readonly theme = signal<ComponentThemeConfig>(
@@ -204,6 +255,29 @@ export class ThemePreviewComponent {
 }
 ```
 
+#### 2. Файл разметки: `theme-preview.html`
+```html
+<div class="preview" [style.color]="theme().primaryColor">
+  <p>Текущий радиус скругления: {{ theme().borderRadiusPx }}px</p>
+  <button (click)="applyDarkTheme()">Включить темную тему</button>
+  <button (click)="applyIdenticalSettings()">Применить те же настройки</button>
+</div>
+```
+
+#### 3. Файл стилей: `theme-preview.css`
+```css
+.preview {
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+button {
+  margin-right: 8px;
+  padding: 6px 12px;
+  cursor: pointer;
+}
+```
+
 ---
 
 ## ГЛУБОКОЕ ПОГРУЖЕНИЕ
@@ -231,13 +305,15 @@ Object.is([], []) // Вернет false
 Если вы вызываете `set()` и передаете новый массив (даже если он пустой или содержит абсолютно те же элементы), `Object.is` вернет `false`. Angular посчитает значение изменившимся и запустит ресурсоемкий Change Detection. Передача кастомной функции сравнения `{ equal: (prev, curr) => boolean }` позволяет настроить глубокое сравнение (Structural Equality), полностью избавляя UI от паразитных циклов перерисовки.
 
 ### 3. Пошаговый разбор обновления реактивного графа
-Рассмотрим логику выполнения операции `.update()` в Шаблоне 2:
+Рассмотрим логику выполнения операции `.update()` в `TaskManager`:
 
 1.  **Считывание значения:** Вызов `tasks.update(curr => [...curr, newTask])` считывает предыдущий массив из памяти.
 2.  **Генерация нового массива:** С помощью spread-оператора `[...curr]` создается абсолютно новый массив на новом адресе в оперативной памяти.
 3.  **Сравнение:** Срабатывает дефолтный валидатор `Object.is(oldArray, newArray)`. Так как ссылки разные, он возвращает `false`.
 4.  **Смена статуса:** Значение сигнала перезаписывается. Сигнал `tasks` рассылает по реактивному графу уведомление о том, что он помечен флагом `dirty`.
 5.  **Рендеринг:** Шаблон компонента (который является потребителем) видит статус `dirty`, запрашивает свежий массив и перерисовывает только тот фрагмент DOM-дерева, который отвечает за отображение добавленной таски.
+
+---
 
 ### 4. Типичные ошибки и их решение
 
@@ -248,8 +324,8 @@ Object.is([], []) // Вернет false
 
 ```typescript
 // ОШИБКА: Мутация ссылки заблокирует Change Detection Angular
-// this.tasks().push(newTask);
-// this.tasks.set(this.tasks());
+this.tasks().push(newTask);
+this.tasks.set(this.tasks());
 
 // ИСПРАВЛЕНИЕ: Иммутабельное обновление с созданием новой ссылки
 this.tasks.update(current => [...current, newTask]);
@@ -262,7 +338,7 @@ this.tasks.update(current => [...current, newTask]);
 
 ```typescript
 // ОШИБКА: Метод удален из Angular
-// this.user.mutate(u => u.name = 'New Name');
+this.user.mutate(u => u.name = 'New Name');
 
 // ИСПРАВЛЕНИЕ: Переход на иммутабельный .update()
 this.user.update(current => ({ ...current, name: 'New Name' }));

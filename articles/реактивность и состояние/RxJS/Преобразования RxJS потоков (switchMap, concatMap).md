@@ -12,7 +12,7 @@ status: "completed"
 *   **Четыре фундаментальные стратегии:**
     *   `switchMap` (Отмена): При получении нового внешнего события моментально отменяет (вызывает `.unsubscribe()`) предыдущий активный внутренний запрос. Свежее событие всегда вытесняет старое.
     *   `concatMap` (Очередь): Буферизует все входящие внешние события и выполняет внутренние потоки строго последовательно — один за другим, дожидаясь завершения (`complete`) каждого предыдущего. Сохраняет строгий порядок.
-    *   `mergeMap` (Параллельность): Запускает внутренние потоки параллельно, по мере их поступления, без отмены и ожидания. Результаты сливаются в хаотичном порядке по мере готовности сетевых ответов.
+    *   `mergeMap` (Parallel): Запускает внутренние потоки параллельно, по мере их поступления, без отмены и ожидания. Результаты сливаются в хаотичном порядке по мере готовности сетевых ответов.
     *   `exhaustMap` (Игнорирование): Полностью игнорирует любые новые внешние события до тех пор, пока текущий внутренний поток не завершит свою работу.
 *   **Правила использования:**
     *   **Используйте `switchMap`:** Для любых операций чтения (Read) — живой поиск, переключение вкладок, применение фильтров таблицы.
@@ -26,8 +26,9 @@ status: "completed"
 ### Шаблон 1: Живой поиск с автоматической отменой запросов (switchMap)
 *   **Назначение:** Реализация строки ввода, которая отправляет поисковые запросы на сервер с автоматической отменой предыдущих зависших сетевых запросов при быстром наборе текста.
 
+#### 1. Файл логики: `user-search.ts`
 ```typescript
-import { Component, inject, signal, OnInit, DestroyRef } from '@angular/core';
+import { Component, inject, signal, OnInit, DestroyRef, ChangeDetectionStrategy } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Subject, Observable, of } from 'rxjs';
 import { switchMap, debounceTime, distinctUntilChanged, catchError, tap } from 'rxjs/operators';
@@ -35,24 +36,13 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 
 @Component({
   selector: 'app-user-search',
-  standalone: true,
-  template: `
-    <div class="search-box">
-      <input type="text" (input)="onSearchInput($event)" placeholder="Введите имя..." />
-      
-      @if (isLoading()) {
-        <p>Поиск на сервере...</p>
-      }
-
-      <ul>
-        @for (user of searchResults(); track user) {
-          <li>{{ user }}</li>
-        }
-      </ul>
-    </div>
-  `
+  // standalone: true опускается по умолчанию начиная с v19
+  imports: [], 
+  templateUrl: './user-search.html',
+  styleUrl: './user-search.css',
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class UserSearchComponent implements OnInit {
+export class UserSearch implements OnInit { // Имя класса очищено от суффикса Component
   private readonly http = inject(HttpClient);
   private readonly destroyRef = inject(DestroyRef);
 
@@ -101,6 +91,41 @@ export class UserSearchComponent implements OnInit {
     const input = event.target as HTMLInputElement;
     this.searchTerms$.next(input.value);
   }
+}
+```
+
+#### 2. Файл разметки: `user-search.html`
+```html
+<div class="search-box">
+  <input type="text" (input)="onSearchInput($event)" placeholder="Введите имя..." class="theme-input" />
+  
+  @if (isLoading()) {
+    <p class="loading-indicator">Поиск на сервере...</p>
+  }
+
+  <ul class="results-list">
+    @for (user of searchResults(); track user) {
+      <li>{{ user }}</li>
+    }
+  </ul>
+</div>
+```
+
+#### 3. Файл стилей: `user-search.css`
+```css
+.search-box {
+  padding: 16px;
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.loading-indicator {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+.results-list {
+  margin-top: 12px;
+  padding-left: 20px;
 }
 ```
 
@@ -166,25 +191,22 @@ export class TaskQueueService {
 ### Шаблон 3: Блокировка кнопки отправки формы от двойного клика (exhaustMap)
 *   **Назначение:** Игнорирование повторных кликов пользователя по кнопке «Оплатить» или «Отправить» до тех пор, пока сервер не вернет финальный ответ на первый запрос.
 
+#### 1. Файл логики: `payment-button.ts`
 ```typescript
-import { Component, inject, DestroyRef, OnInit } from '@angular/core';
+import { Component, inject, DestroyRef, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Subject, Observable, of } from 'rxjs';
-import { exhaustMap, catchError, tap } from 'rxjs/operators';
+import { exhaustMap, catchError } from 'rxjs/operators';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 
 @Component({
   selector: 'app-payment-button',
-  standalone: true,
-  template: `
-    <div class="payment-box">
-      <button class="action-btn" (click)="triggerPayment()">
-        Инициировать транзакцию
-      </button>
-    </div>
-  `
+  imports: [],
+  templateUrl: './payment-button.html',
+  styleUrl: './payment-button.css',
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class PaymentButtonComponent implements OnInit {
+export class PaymentButton implements OnInit {
   private readonly http = inject(HttpClient);
   private readonly destroyRef = inject(DestroyRef);
 
@@ -215,6 +237,31 @@ export class PaymentButtonComponent implements OnInit {
   public triggerPayment(): void {
     this.paymentClicks$.next();
   }
+}
+```
+
+#### 2. Файл разметки: `payment-button.html`
+```html
+<div class="payment-box">
+  <button class="action-btn" (click)="triggerPayment()">
+    Инициировать транзакцию
+  </button>
+</div>
+```
+
+#### 3. Файл стилей: `payment-button.css`
+```css
+.payment-box {
+  padding: 12px;
+}
+.action-btn {
+  padding: 10px 20px;
+  background-color: var(--accent);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 600;
 }
 ```
 
@@ -261,7 +308,7 @@ this.term$.subscribe(term => {
 ### 4. Типичные ошибки и их решение
 
 *   **Ошибка 1: Использование switchMap для неидемпотентных запросов сохранения (Lost Writes)**
-    *   *Симптомы:* Пользователь быстро заполняет форму и нажимает «Сохранить», но некоторые изменения хаотично теряются или не доходят до базы данных.
+    *   *Симптомы:* Пользователь быстро заменяет данные в форме и нажимает «Сохранить», но некоторые изменения хаотично теряются или не доходят до базы данных.
     *   *Физика процесса:* Разработчик повесил сохранение на `switchMap`. Пользователь быстро кликнул по кнопкам сохранения разных полей. Второй клик принудительно отменил незавершенный сетевой запрос первого клика. Хотя первый запрос мог уже частично выполниться базой данных на бэкенде, клиентское приложение считает его отмененным, нарушая целостность данных в UI.
     *   *Решение:* Для любых операций записи, сохранения или изменения данных строго используйте `concatMap` (последовательно) или `mergeMap` (параллельно), но никогда не используйте `switchMap`.
 

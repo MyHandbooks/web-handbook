@@ -21,6 +21,7 @@ status: "completed"
 ### Шаблон 1: Кэширующий сервис статических справочников
 *   **Назначение:** Реализация надежного глобального сервиса, который один раз запрашивает массив стран с сервера и раздает его всем компонентам из кэша, полностью блокируя повторные сетевые вызовы.
 
+#### 1. Файл логики: `dictionary.service.ts`
 ```typescript
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
@@ -36,7 +37,7 @@ export interface CountryDictionary {
   providedIn: 'root'
 })
 export class DictionaryService {
-  private readonly http = inject(HttpClient);
+  private readonly http = inject(HttpClient); // Внедряем HttpClient
   private readonly api = 'https://api.enterprise-service.com/v1/dictionaries/countries';
 
   // Объявляем поток-источник. Пока на него никто не подписался, запрос в сеть не уходит.
@@ -60,43 +61,64 @@ export class DictionaryService {
 ### Шаблон 2: Совместное использование потока в шаблоне (Несколько AsyncPipe)
 *   **Назначение:** Пример UI-компонента, который выводит информацию об одном и том же потоке данных в разных независимых блоках верстки без дублирования HTTP-запросов к бэкенду.
 
+#### 1. Файл логики: `country-selector.ts`
 ```typescript
-import { Component, inject } from '@angular/core';
-import { AsyncPipe, JsonPipe } from '@angular/common';
+import { Component, inject, ChangeDetectionStrategy } from '@angular/core';
+import { AsyncPipe } from '@angular/common';
 import { DictionaryService } from './dictionary.service';
 
 @Component({
   selector: 'app-country-selector',
-  standalone: true,
-  imports: [AsyncPipe, JsonPipe],
-  template: `
-    <div class="selector-card">
-      <!-- Блок 1: Выводим количество стран -->
-      <div class="info-header">
-        @if (countries$ | async; as list) {
-          <p>Загружено стран: {{ list.length }}</p>
-        } @else {
-          <p>Загрузка справочника...</p>
-        }
-      </div>
-
-      <!-- Блок 2: Выводим выпадающий список -->
-      <div class="info-body">
-        <select>
-          <!-- Благодаря shareReplay, эта вторая подписка async НЕ совершит повторный HTTP-запрос! -->
-          @for (country of countries$ | async; track country.code) {
-            <option [value]="country.code">{{ country.name }}</option>
-          }
-        </select>
-      </div>
-    </div>
-  `
+  // standalone: true опускается по умолчанию начиная с v19
+  imports: [
+    AsyncPipe // Точечно импортируем только AsyncPipe для развертывания подписок в HTML
+  ],
+  templateUrl: './country-selector.html',
+  styleUrl: './country-selector.css',
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class CountrySelectorComponent {
+export class CountrySelector { // Имя класса очищено от суффикса Component
   private readonly dictionaryService = inject(DictionaryService);
 
   // Передаем ссылку на кэшируемый поток напрямую в шаблон
   public readonly countries$ = this.dictionaryService.countries$;
+}
+```
+
+#### 2. Файл разметки: `country-selector.html`
+```html
+<div class="selector-card">
+  <!-- Блок 1: Выводим количество стран -->
+  <div class="info-header">
+    @if (countries$ | async; as list) {
+      <p>Загружено стран: {{ list.length }}</p>
+    } @else {
+      <p>Загрузка справочника...</p>
+    }
+  </div>
+
+  <!-- Блок 2: Выводим выпадающий список -->
+  <div class="info-body">
+    <select class="theme-select">
+      <!-- Благодаря shareReplay, эта вторая подписка async НЕ совершит повторный HTTP-запрос! -->
+      @for (country of countries$ | async; track country.code) {
+        <option [value]="country.code">{{ country.name }}</option>
+      }
+    </select>
+  </div>
+</div>
+```
+
+#### 3. Файл стилей: `country-selector.css`
+```css
+.selector-card {
+  padding: 16px;
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.info-header {
+  margin-bottom: 12px;
 }
 ```
 
@@ -105,10 +127,11 @@ export class CountrySelectorComponent {
 ### Шаблон 3: Механизм принудительного сброса (инвалидации) кэша shareReplay
 *   **Назначение:** Описание паттерна с использованием переключателя `Subject` для возможности принудительного сброса кэша и повторной отправки запроса по требованию пользователя.
 
+#### 1. Файл логики: `configuration-cache.service.ts`
 ```typescript
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable, Subject, merge } from 'rxjs';
+import { Observable, Subject, merge, of } from 'rxjs';
 import { shareReplay, switchMap } from 'rxjs/operators';
 
 @Injectable({

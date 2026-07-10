@@ -22,6 +22,7 @@ status: "completed"
 ### Шаблон 1: Цикл со служебными контекстными переменными и заглушкой
 *   **Назначение:** Отрисовка списка объектов `TargetPayload` с использованием встроенных контекстных переменных для стилизации четных строк, вывода порядковых номеров и обработки пустого состояния.
 
+#### 1. Файл логики: `loop-basic.ts`
 ```typescript
 import { Component, ChangeDetectionStrategy, signal } from '@angular/core';
 
@@ -32,52 +33,12 @@ export interface TargetPayload {
 
 @Component({
   selector: 'app-loop-basic',
-  standalone: true,
   imports: [], // Встроенный Control Flow не требует импорта CommonModule или NgFor
-  template: `
-    <div class="list-wrapper">
-      <h2>Список системных ресурсов</h2>
-
-      <ul class="resource-list">
-        <!-- 
-          Инициализация встроенного цикла:
-          1. item - текущий элемент массива
-          2. track item.uniqueId - связывание DOM-узла с уникальным ключом для оптимизации перерисовок
-          3. $index - локальная контекстная переменная (индекс текущего элемента с 0)
-          4. $even - булевый флаг, возвращающий true для четных элементов (0, 2, 4...)
-        -->
-        @for (item of items(); track item.uniqueId; let idx = $index; let isEven = $even) {
-          <li class="list-item" [class.highlighted]="isEven">
-            <!-- Вывод порядкового номера элемента (начиная с 1) и его названия -->
-            <span class="badge">{{ idx + 1 }}</span>
-            <span class="title">{{ item.displayTitle }}</span>
-          </li>
-        } @empty {
-          <!-- Блок автоматически отрисуется, если массив items() пуст -->
-          <li class="empty-state">
-            <p>Доступные ресурсы отсутствуют в конфигурации.</p>
-          </li>
-        }
-      </ul>
-
-      <div class="actions">
-        <button (click)="loadResources()">Загрузить ресурсы</button>
-        <button (click)="clearResources()">Очистить список</button>
-      </div>
-    </div>
-  `,
-  styles: [`
-    .list-wrapper { padding: 20px; }
-    .resource-list { list-style: none; padding: 0; }
-    .list-item { display: flex; align-items: center; padding: 8px 12px; border-bottom: 1px solid var(--border); }
-    .list-item.highlighted { background-color: var(--bg-secondary); }
-    .badge { background-color: var(--accent); color: white; border-radius: 4px; padding: 2px 6px; margin-right: 12px; font-size: 0.8rem; }
-    .empty-state { padding: 20px; text-align: center; color: var(--text-muted); border: 1px dashed var(--border); }
-    .actions { display: flex; gap: 10px; margin-top: 15px; }
-  `],
+  templateUrl: './loop-basic.html',
+  styleUrl: './loop-basic.css',
   changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class LoopBasicComponent {
+export class LoopBasic { // Имя класса не содержит суффикса Component
   // Инициализация реактивного списка данных
   readonly items = signal<TargetPayload[]>([]);
 
@@ -97,11 +58,91 @@ export class LoopBasicComponent {
 }
 ```
 
+#### 2. Файл разметки: `loop-basic.html`
+```html
+<div class="list-wrapper">
+  <h2>Список системных ресурсов</h2>
+
+  <ul class="resource-list">
+    <!-- 
+      Инициализация встроенного цикла:
+      1. item - текущий элемент массива
+      2. track item.uniqueId - связывание DOM-узла с уникальным ключом для оптимизации перерисовок
+      3. $index - локальная контекстная переменная (индекс текущего элемента с 0)
+      4. $even - булевый флаг, возвращающий true для четных элементов (0, 2, 4...)
+    -->
+    @for (item of items(); track item.uniqueId; let idx = $index; let isEven = $even) {
+      <li class="list-item" [class.highlighted]="isEven">
+        <!-- Вывод порядкового номера элемента (начиная с 1) и его названия -->
+        <span class="badge">{{ idx + 1 }}</span>
+        <span class="title">{{ item.displayTitle }}</span>
+      </li>
+    } @empty {
+      <!-- Блок автоматически отрисуется, если массив items() пуст -->
+      <li class="empty-state">
+        <p>Доступные ресурсы отсутствуют в конфигурации.</p>
+      </li>
+    }
+  </ul>
+
+  <div class="actions">
+    <button (click)="loadResources()">Загрузить ресурсы</button>
+    <button (click)="clearResources()">Очистить список</button>
+  </div>
+</div>
+```
+
+#### 3. Файл стилей: `loop-basic.css`
+```css
+.list-wrapper {
+  padding: 20px;
+}
+
+.resource-list {
+  list-style: none;
+  padding: 0;
+}
+
+.list-item {
+  display: flex;
+  align-items: center;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.list-item.highlighted {
+  background-color: var(--bg-secondary);
+}
+
+.badge {
+  background-color: var(--accent);
+  color: white;
+  border-radius: 4px;
+  padding: 2px 6px;
+  margin-right: 12px;
+  font-size: 0.8rem;
+}
+
+.empty-state {
+  padding: 20px;
+  text-align: center;
+  color: var(--text-muted);
+  border: 1px dashed var(--border);
+}
+
+.actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 15px;
+}
+```
+
 ---
 
 ### Шаблон 2: Оптимизированное иммутабельное обновление сигнального списка
 *   **Назначение:** Динамическое изменение списка (добавление, удаление, сортировка) с использованием иммутабельных методов и корректным отслеживанием элементов по бизнес-идентификаторам.
 
+#### 1. Файл логики: `loop-immutable.ts`
 ```typescript
 import { Component, ChangeDetectionStrategy, signal } from '@angular/core';
 
@@ -112,43 +153,12 @@ export interface DataStateItem {
 
 @Component({
   selector: 'app-loop-immutable',
-  standalone: true,
   imports: [],
-  template: `
-    <div class="immutable-container">
-      <div class="header">
-        <h3>Управление элементами (Всего: {{ items().length }})</h3>
-        <button (click)="addNewItem()">Добавить элемент</button>
-      </div>
-
-      <div class="grid-list">
-        <!-- 
-          Использование уникального бизнес-ключа 'id' гарантирует, что 
-          при сортировке или удалении Angular просто переместит DOM-узлы, 
-          вместо их полного уничтожения и пересоздания.
-        -->
-        @for (item of items(); track item.id) {
-          <div class="grid-card">
-            <span>{{ item.name }}</span>
-            <button class="delete-btn" (click)="removeItem(item.id)">Удалить</button>
-          </div>
-        } @empty {
-          <div class="no-cards">Нет активных карточек.</div>
-        }
-      </div>
-    </div>
-  `,
-  styles: [`
-    .immutable-container { padding: 16px; }
-    .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
-    .grid-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; }
-    .grid-card { border: 1px solid var(--border); padding: 12px; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; }
-    .delete-btn { background: none; border: 1px solid var(--error-text); color: var(--error-text); border-radius: 4px; cursor: pointer; padding: 4px 8px; font-size: 0.75rem; }
-    .no-cards { grid-column: 1 / -1; text-align: center; padding: 30px; border: 1.5px dashed var(--border); }
-  `],
+  templateUrl: './loop-immutable.html',
+  styleUrl: './loop-immutable.css',
   changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class LoopImmutableComponent {
+export class LoopImmutable {
   // Список инициализируется дефолтными элементами
   readonly items = signal<DataStateItem[]>([
     { id: '1', name: 'Модуль Альфа' },
@@ -169,6 +179,80 @@ export class LoopImmutableComponent {
     // Метод filter возвращает совершенно новую ссылку на массив без искомого элемента
     this.items.update(currentList => currentList.filter(item => item.id !== targetId));
   }
+}
+```
+
+#### 2. Файл разметки: `loop-immutable.html`
+```html
+<div class="immutable-container">
+  <div class="header">
+    <h3>Управление элементами (Всего: {{ items().length }})</h3>
+    <button (click)="addNewItem()">Добавить элемент</button>
+  </div>
+
+  <div class="grid-list">
+    <!-- 
+      Использование уникального бизнес-ключа 'id' гарантирует, что 
+      при сортировке или удалении Angular просто переместит DOM-узлы, 
+      вместо их полного уничтожения и пересоздания.
+    -->
+    @for (item of items(); track item.id) {
+      <div class="grid-card">
+        <span>{{ item.name }}</span>
+        <button class="delete-btn" (click)="removeItem(item.id)">Удалить</button>
+      </div>
+    } @empty {
+      <div class="no-cards">Нет активных карточек.</div>
+    }
+  </div>
+</div>
+```
+
+#### 3. Файл стилей: `loop-immutable.css`
+```css
+.immutable-container {
+  padding: 16px;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.grid-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 12px;
+}
+
+.grid-card {
+  border: 1px solid var(--border);
+  padding: 12px;
+  border-radius: 8px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.delete-btn {
+  background: none;
+  border: 1px solid var(--error-text);
+  color: var(--error-text);
+  border-radius: 4px;
+  cursor: pointer;
+  padding: 4px 8px;
+  font-size: 0.75rem;
+}
+
+.no-cards {
+  grid-column: 1 / -1;
+  text-align: center;
+  padding: 30px;
+  border: 1.5px dashed var(--border);
+  border-radius: 8px;
+  color: var(--text-muted);
 }
 ```
 
@@ -204,7 +288,7 @@ export class LoopImmutableComponent {
 Эти переменные компилируются во внутренние локальные переменные функции рендеринга Ivy и не создают дополнительной нагрузки на обход дерева инжекторов, работая со скоростью нативного JS.
 
 ### 3. Пошаговый разбор жизненного цикла рендеринга цикла
-При первой отрисовке `LoopBasicComponent`:
+При первой отрисовке `LoopBasic`:
 1.  **Анализ источника:** Считывается значение сигнала `items()`. Если длина массива равна 0, компилятор сразу перенаправляет поток рендеринга в ветку `@empty`.
 2.  **Генерация TView / LView:** Если данные есть, создается корневой шаблон цикла. Для каждого элемента массива генерируется локальное дочернее представление (Embedded View).
 3.  **Кэширование ключей track:** Для каждого элемента рантайм вычисляет переданное выражение `track` и сохраняет соответствие ключа и индекса элемента в системном массиве отслеживания.
@@ -222,28 +306,21 @@ export class LoopImmutableComponent {
 ```typescript
 // ОШИБКА: Использование индекса в качестве трекера для динамического списка
 @Component({
-  template: `
-    @for (user of users(); track $index) {
-      <div class="card">
-        <!-- Если удалить этого пользователя, фокус ввода в input перейдет на соседа -->
-        <input [(ngModel)]="user.comment"> 
-      </div>
-    }
-  `
+  selector: 'app-faulty-loop',
+  templateUrl: './faulty-loop.html',
+  styleUrl: './faulty-loop.css'
 })
-export class FaultyLoopComponent { ... }
+export class FaultyLoop { ... }
+// В шаблоне: @for (user of users(); track $index) { <input [(ngModel)]="user.comment"> }
 
 // ИСПРАВЛЕНИЕ: Отслеживание по уникальному ID сущности
 @Component({
-  template: `
-    @for (user of users(); track user.id) {
-      <div class="card">
-        <input [(ngModel)]="user.comment">
-      </div>
-    }
-  `
+  selector: 'app-fixed-loop',
+  templateUrl: './fixed-loop.html',
+  styleUrl: './fixed-loop.css'
 })
-export class FixedLoopComponent { ... }
+export class FixedLoop { ... }
+// В шаблоне: @for (user of users(); track user.id) { <input [(ngModel)]="user.comment"> }
 ```
 
 *   **Ошибка 2: Отслеживание по ссылке на весь объект (`track item`)**
@@ -253,10 +330,10 @@ export class FixedLoopComponent { ... }
 
 ```typescript
 // ОШИБКА: Отслеживание по объекту-ссылке
-@for (item of dataList(); track item) { ... }
+// @for (item of dataList(); track item) { ... }
 
 // ИСПРАВЛЕНИЕ: Отслеживание по уникальному строковому/числовому свойству
-@for (item of dataList(); track item.uniqueIdentifier) { ... }
+// @for (item of dataList(); track item.uniqueIdentifier) { ... }
 ```
 
 *   **Ошибка 3: Мутация оригинального массива вместо создания новой ссылки (нарушение OnPush)**

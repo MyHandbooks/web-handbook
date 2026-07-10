@@ -134,37 +134,21 @@ export class RealtimeSocketService {
 ### Шаблон 2: Компонент отображения живых котировок с автоматической отпиской
 *   **Назначение:** Реализация UI-компонента, который при инициализации подписывается на WebSocket-сервис, выводит динамическую цену котировок на Сигналах и шлет управляющие сокет-команды на сервер.
 
+#### 1. Файл логики: `ticker-dashboard.ts`
 ```typescript
-import { Component, inject, signal, OnInit, DestroyRef } from '@angular/core';
+import { Component, inject, signal, OnInit, DestroyRef, ChangeDetectionStrategy } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { RealtimeSocketService, SocketMessagePayload } from './realtime-socket.service';
 
 @Component({
   selector: 'app-ticker-dashboard',
-  standalone: true,
-  template: `
-    <div class="ticker-card">
-      <h3>Монитор котировок BTC</h3>
-      
-      @if (bitcoinPrice(); as price) {
-        <p class="price-text">BTC/USD: <b>{{ price }} $</b></p>
-      } @else {
-        <p class="status-loading">Ожидание подключения к потоку реального времени...</p>
-      }
-
-      <div class="btn-group">
-        <button class="action-btn" (click)="subscribeToLiveTicker()">Запустить поток</button>
-        <button class="action-btn" (click)="unsubscribeFromLiveTicker()">Остановить поток</button>
-      </div>
-    </div>
-  `,
-  styles: [`
-    .ticker-card { padding: 24px; border: 1px solid var(--border); border-radius: 12px; background-color: var(--bg-secondary); max-width: 380px; }
-    .price-text { font-size: 1.5rem; color: var(--success-text); margin: 16px 0; font-weight: 700; }
-    .btn-group { display: flex; gap: 10px; margin-top: 15px; }
-  `]
+  // standalone: true опускается по умолчанию начиная с v19
+  imports: [], // Использование встроенного Control Flow избавляет от импорта директив в шаблоне
+  templateUrl: './ticker-dashboard.html',
+  styleUrl: './ticker-dashboard.css',
+  changeDetection: ChangeDetectionStrategy.OnPush // OnPush минимизирует проверки изменений в шаблоне
 })
-export class TickerDashboardComponent implements OnInit {
+export class TickerDashboard implements OnInit { // Имя класса очищено от устаревшего суффикса Component
   private readonly socketService = inject(RealtimeSocketService);
   private readonly destroyRef = inject(DestroyRef);
 
@@ -202,6 +186,70 @@ export class TickerDashboardComponent implements OnInit {
   public unsubscribeFromLiveTicker(): void {
     this.socketService.sendMessage('UNSUBSCRIBE', { symbol: 'BTCUSD' });
   }
+}
+```
+
+#### 2. Файл разметки: `ticker-dashboard.html`
+```html
+<div class="ticker-card">
+  <h3>Монитор котировок BTC</h3>
+  
+  <!-- Декларативно выводим цену или статус ожидания с помощью @if -->
+  @if (bitcoinPrice(); as price) {
+    <p class="price-text">BTC/USD: <b>{{ price }} $</b></p>
+  } @else {
+    <p class="status-loading">Ожидание подключения к потоку реального времени...</p>
+  }
+
+  <div class="btn-group">
+    <button class="action-btn" (click)="subscribeToLiveTicker()">Запустить поток</button>
+    <button class="action-btn" (click)="unsubscribeFromLiveTicker()">Остановить поток</button>
+  </div>
+</div>
+```
+
+#### 3. Файл стилей: `ticker-dashboard.css`
+```css
+.ticker-card {
+  padding: 24px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background-color: var(--bg-secondary);
+  max-width: 380px;
+}
+
+.price-text {
+  font-size: 1.5rem;
+  color: var(--success-text);
+  margin: 16px 0;
+  font-weight: 700;
+}
+
+.status-loading {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  margin: 16px 0;
+}
+
+.btn-group {
+  display: flex;
+  gap: 10px;
+  margin-top: 15px;
+}
+
+.action-btn {
+  padding: 10px 20px;
+  background-color: var(--accent);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: background-color var(--transition-speed);
+}
+
+.action-btn:hover {
+  background-color: var(--accent-hover);
 }
 ```
 
