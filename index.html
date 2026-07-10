@@ -99,46 +99,36 @@
               <app-icon name="key" class="icon-warning"></app-icon>
               <h3>Требуется авторизация</h3>
             </div>
-            <p>Для активации режима устного экзамена необходимо указать ваш персональный API-ключ в панели настроек слева. Ключ сохраняется локально в памяти вашего браузера.</p>
+            <p>Для активации персонального AI-помощника необходимо указать ваш персональный API-ключ в панели настроек слева. Ключ сохраняется локально в памяти вашего браузера.</p>
           </div>
 
           <div id="exam-interface" class="exam-workspace hidden">
             <div class="exam-status-bar">
-              <span id="exam-status">Готов к началу проверки знаний</span>
-              <button id="reset-exam-btn" class="reset-btn">Сбросить прогресс</button>
+              <span id="exam-status">Помощник готов к работе</span>
+              <button id="reset-exam-btn" class="reset-btn">Сбросить историю</button>
             </div>
 
             <div class="chat-container" id="exam-chat-messages">
               <div class="message assistant">
-                <p>Привет! Я твой интерактивный экзаменатор. Я прочитаю текущую статью и подготовлю для тебя вопросы для проверки знаний. Когда будешь готов начать, нажми кнопку ниже.</p>
+                <p>Привет! Я твой умный фронтенд-библиотекарь. Я помогу сориентироваться в конспектах, подготовлю выжимки статей или подробно отвечу на технические вопросы. Выберите режим работы ниже и нажмите кнопку запуска.</p>
               </div>
             </div>
 
             <div class="interaction-area">
               
               <div id="exam-setup-fields" class="settings-content" style="margin-bottom: 15px;">
-                <label for="exam-mode-select">Режим общения:</label>
-                <select id="exam-mode-select" class="theme-select">
-                  <option value="consultation">Консультация (вопросы и разъяснения)</option>
-                  <option value="exam">Экзамен (тестирование знаний)</option>
+                <label for="assistant-style-select">Режим работы помощника:</label>
+                <select id="assistant-style-select" class="theme-select">
+                  <option value="summary">Краткие саммари и навигация</option>
+                  <option value="detailed">Подробные разъяснения и примеры</option>
                 </select>
-
-                <div id="exam-questions-count-group" class="hidden" style="display: flex; flex-direction: column; gap: 8px;">
-                  <label for="exam-questions-select" style="margin-top: 5px; display: block;">Количество вопросов:</label>
-                  <select id="exam-questions-select" class="theme-select">
-                    <option value="3">3 вопроса</option>
-                    <option value="5">5 вопросов</option>
-                    <option value="10">10 вопросов</option>
-                    <option value="auto">Оптимально (выберет нейросеть)</option>
-                  </select>
-                </div>
               </div>
 
-              <button id="start-exam-btn" class="action-btn start-btn">Начать общение</button>
+              <button id="start-exam-btn" class="action-btn start-btn">Запустить помощника</button>
               
               <div id="interactive-inputs" class="input-form hidden">
-                <textarea id="student-answer-input" placeholder="Напишите ваш подробный ответ своими словами... (Ctrl + Enter для отправки)" rows="3"></textarea>
-                <button id="send-answer-btn" class="action-btn send-btn">Отправить ответ</button>
+                <textarea id="student-answer-input" placeholder="Спросите меня о чем угодно из базы знаний... (Ctrl + Enter для отправки)" rows="3"></textarea>
+                <button id="send-answer-btn" class="action-btn send-btn">Отправить запрос</button>
               </div>
             </div>
           </div>

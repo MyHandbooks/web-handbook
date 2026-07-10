@@ -9,7 +9,7 @@ import {
 	prepareExam,
 	sendExamMessage,
 	clearExamHistory,
-	setExamParams,
+	setAssistantParams,
 } from './ai-examiner.js'
 
 const keyWarning = document.getElementById('ai-key-warning')
@@ -31,23 +31,23 @@ const examChatMessages = document.getElementById('exam-chat-messages')
 const examStatus = document.getElementById('exam-status')
 const resetExamBtn = document.getElementById('reset-exam-btn')
 
-const examModeSelect = document.getElementById('exam-mode-select')
-const examQuestionsCountGroup = document.getElementById(
-	'exam-questions-count-group',
-)
-const examQuestionsSelect = document.getElementById('exam-questions-select')
+// Обновленные элементы настройки стиля ответов
+const assistantStyleSelect = document.getElementById('assistant-style-select')
+const examSetupFields = document.getElementById('exam-setup-fields')
 
 let allLoadedModels = []
 
 export function getCurrentRoute() {
-	const hash = window.location.hash.slice(1)
+	const hash = decodeURIComponent(window.location.hash.slice(1))
 	if (!hash) return null
-	const slashIndex = hash.indexOf('/')
-	if (slashIndex === -1) return null
+	const parts = hash.split('/')
+	if (parts.length < 3) return null
 
-	const category = hash.substring(0, slashIndex)
-	const articleName = decodeURIComponent(hash.substring(slashIndex + 1))
-	return { category, articleName }
+	return {
+		category: parts[0],
+		subcategory: parts[1],
+		articleName: parts[2],
+	}
 }
 
 export async function checkApiKeyStatus() {
@@ -129,40 +129,33 @@ function populateModelDropdown() {
 }
 
 function updateWelcomeMessage() {
-	const mode = examModeSelect.value
-	if (mode === 'consultation') {
-		examQuestionsCountGroup.classList.add('hidden')
-		startExamBtn.textContent = 'Начать консультацию'
+	const style = assistantStyleSelect.value
+	if (style === 'summary') {
+		startExamBtn.textContent = 'Запустить помощника'
 		examChatMessages.innerHTML = `
 			<div class="message assistant">
-				<p>Привет! Я твой личный ментор по веб-разработке. Я подробно изучу текущую статью и помогу тебе во всём разобраться. Ты сможешь задать мне любые вопросы, попросить объяснить сложные термины или привести примеры кода. Когда будешь готов, нажми кнопку ниже.</p>
+				<p>Привет! Я твой интерактивный библиотекарь по фронтенду. В режиме <b>сжатых саммари</b> я буду присылать лаконичные тезисы, структурированные выжимки лекций и помогать быстро находить нужные фрагменты информации. Нажмите кнопку ниже, чтобы запустить ассистента.</p>
 			</div>
 		`
 		studentAnswerInput.placeholder =
-			'Напишите ваш вопрос или уточнение... (Ctrl + Enter для отправки)'
-		examStatus.textContent = 'Готов к началу консультации'
+			'Спросите меня о чем угодно из базы знаний... (Ctrl + Enter для отправки)'
+		examStatus.textContent = 'Помощник готов к краткой навигации'
 	} else {
-		examQuestionsCountGroup.classList.remove('hidden')
-		startExamBtn.textContent = 'Начать экзамен'
-		const count =
-			examQuestionsSelect.value === 'auto'
-				? 'оптимальное количество'
-				: examQuestionsSelect.value
+		startExamBtn.textContent = 'Запустить помощника'
 		examChatMessages.innerHTML = `
 			<div class="message assistant">
-				<p>Привет! Я твой интерактивный экзаменатор. Я прочитаю текущую статью и подготовлю для тебя вопросы (выбранный режим: <b>${count}</b>) для проверки знаний. Тебе нужно будет отвечать своими словами. Когда будешь готов начать, нажми кнопку ниже.</p>
+				<p>Привет! Я твой детальный технический наставник и библиотекарь. В режиме <b>подробных разъяснений</b> я буду детально разбирать концепции текущей статьи, приводить подробные примеры кода с комментариями и отвечать на глубокие вопросы. Нажмите кнопку ниже, чтобы запустить ассистента.</p>
 			</div>
 		`
 		studentAnswerInput.placeholder =
-			'Напишите ваш подробный ответ своими словами... (Ctrl + Enter для отправки)'
-		examStatus.textContent = 'Готов к началу экзамена'
+			'Введите ваш подробный вопрос по теме... (Ctrl + Enter для отправки)'
+		examStatus.textContent = 'Помощник готов к подробному разбору'
 	}
 }
 
 export function resetExamUI() {
 	clearExamHistory()
 
-	const examSetupFields = document.getElementById('exam-setup-fields')
 	if (examSetupFields) {
 		examSetupFields.classList.remove('hidden')
 	}
@@ -181,8 +174,7 @@ modelSelect.addEventListener('change', () => {
 	saveSelectedModel(modelSelect.value)
 })
 
-examModeSelect.addEventListener('change', updateWelcomeMessage)
-examQuestionsSelect.addEventListener('change', updateWelcomeMessage)
+assistantStyleSelect.addEventListener('change', updateWelcomeMessage)
 
 saveKeyBtn.addEventListener('click', async () => {
 	const key = apiKeyInput.value.trim()
@@ -230,21 +222,18 @@ startExamBtn.addEventListener('click', async () => {
 		return
 	}
 
-	const mode = examModeSelect.value
-	const count = examQuestionsSelect.value
-	setExamParams(mode, count)
+	const style = assistantStyleSelect.value
+	setAssistantParams(style)
 
 	startExamBtn.disabled = true
-	startExamBtn.textContent =
-		mode === 'consultation'
-			? 'Готовлюсь к консультации...'
-			: 'Изучаю материал...'
-	examStatus.textContent =
-		mode === 'consultation'
-			? 'Ментор читает статью...'
-			: 'Экзаменатор читает статью...'
+	startExamBtn.textContent = 'Анализирую тему...'
+	examStatus.textContent = 'Библиотекарь читает статью...'
 
-	const ready = await prepareExam(route.category, route.articleName)
+	const ready = await prepareExam(
+		route.category,
+		route.subcategory,
+		route.articleName,
+	)
 	if (!ready) {
 		alert('Ошибка при подготовке материала.')
 		resetExamUI()
@@ -256,15 +245,13 @@ startExamBtn.addEventListener('click', async () => {
 		examChatMessages.innerHTML = ''
 		appendMessage('assistant', firstMessage)
 
-		const examSetupFields = document.getElementById('exam-setup-fields')
 		if (examSetupFields) {
 			examSetupFields.classList.add('hidden')
 		}
 
 		startExamBtn.classList.add('hidden')
 		interactiveInputs.classList.remove('hidden')
-		examStatus.textContent =
-			mode === 'consultation' ? 'Консультация в процессе' : 'Экзамен в процессе'
+		examStatus.textContent = 'Помощник активен'
 	} catch (error) {
 		alert(error.message)
 		resetExamUI()
@@ -280,15 +267,12 @@ async function submitAnswer() {
 
 	studentAnswerInput.disabled = true
 	sendAnswerBtn.disabled = true
-	examStatus.textContent =
-		examModeSelect.value === 'consultation'
-			? 'Ментор анализирует сообщение...'
-			: 'Экзаменатор анализирует ответ...'
+	examStatus.textContent = 'Библиотекарь анализирует запрос...'
 
 	try {
 		const response = await sendExamMessage(answer)
 		appendMessage('assistant', response)
-		examStatus.textContent = 'Ожидание ответа'
+		examStatus.textContent = 'Ожидание запроса'
 	} catch (error) {
 		appendMessage('assistant', `❌ Ошибка: ${error.message}`)
 		examStatus.textContent = 'Ошибка сети'
@@ -311,7 +295,7 @@ studentAnswerInput.addEventListener('keydown', e => {
 resetExamBtn.addEventListener('click', () => {
 	if (
 		confirm(
-			'Вы уверены, что хотите прервать текущую сессию? Весь прогресс будет потерян.',
+			'Вы уверены, что хотите сбросить историю текущего диалога с ассистентом?',
 		)
 	) {
 		resetExamUI()
