@@ -31,7 +31,6 @@ const examChatMessages = document.getElementById('exam-chat-messages')
 const examStatus = document.getElementById('exam-status')
 const resetExamBtn = document.getElementById('reset-exam-btn')
 
-// Обновленные элементы настройки стиля ответов
 const assistantStyleSelect = document.getElementById('assistant-style-select')
 const examSetupFields = document.getElementById('exam-setup-fields')
 

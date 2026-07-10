@@ -1,3 +1,5 @@
+import { slugify } from './slug.js'
+
 let articlesData = null
 
 function formatName(text) {
@@ -21,7 +23,8 @@ export function renderMenu(articles) {
 	}
 
 	categories.forEach((category, catIdx) => {
-		const catNumber = catIdx + 1 // Рассчитываем номер раздела (1, 2...)
+		const catNumber = catIdx + 1
+		const catSlug = slugify(category)
 		const catLi = document.createElement('li')
 		catLi.className = 'category-group'
 		catLi.dataset.category = category
@@ -35,7 +38,8 @@ export function renderMenu(articles) {
 
 		const subfolders = Object.keys(articles[category] || {})
 		subfolders.forEach((sub, subIdx) => {
-			const subNumber = `${catNumber}.${subIdx + 1}` // Рассчитываем номер подраздела (1.1, 1.2...)
+			const subNumber = `${catNumber}.${subIdx + 1}`
+			const subSlug = slugify(sub)
 			const subLi = document.createElement('li')
 			subLi.className = 'subcategory-group'
 			subLi.dataset.subcategory = sub
@@ -49,11 +53,11 @@ export function renderMenu(articles) {
 
 			const fileNames = articles[category][sub] || []
 			fileNames.forEach((fileName, artIdx) => {
-				const artNumber = `${subNumber}.${artIdx + 1}` // Рассчитываем номер статьи (1.1.1, 1.1.2...)
+				const artNumber = `${subNumber}.${artIdx + 1}`
 				const fileLi = document.createElement('li')
 				const a = document.createElement('a')
 
-				a.href = `#${category}/${encodeURIComponent(sub)}/${encodeURIComponent(fileName)}` // Формируем хэш-ссылку
+				a.href = `#${catSlug}/${subSlug}/${slugify(fileName)}`
 				a.textContent = `${artNumber}. ${fileName}`
 				a.dataset.category = category
 				a.dataset.subcategory = sub
@@ -109,6 +113,7 @@ export function updateActiveMenuItem(
 
 		const catGroup = activeLink.closest('.category-group')
 		if (catGroup) catGroup.classList.add('open')
+		activeLink.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
 	}
 }
 

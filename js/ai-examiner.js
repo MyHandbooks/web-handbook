@@ -54,9 +54,6 @@ export function setAssistantParams(style) {
 	assistantStyle = style
 }
 
-/**
- * Динамическая загрузка доступных моделей с сервера выбранного провайдера
- */
 export async function fetchModels(provider, apiKey) {
 	const config = PROVIDERS[provider]
 	if (!config) return []
@@ -81,9 +78,6 @@ export async function fetchModels(provider, apiKey) {
 	return result.data || []
 }
 
-/**
- * Локальная фильтрация и поиск моделей по ключевым словам и ценовому тарифу
- */
 export function filterModelsList(
 	models,
 	searchTerm = '',
@@ -116,9 +110,6 @@ export function filterModelsList(
 	})
 }
 
-/**
- * Асинхронно скачивает текст смежной статьи на клиенте по вызову ИИ-инструмента
- */
 async function loadTargetArticleText(category, subcategory, articleName) {
 	try {
 		const response = await fetch(
@@ -133,13 +124,9 @@ async function loadTargetArticleText(category, subcategory, articleName) {
 	}
 }
 
-/**
- * Подготовка материалов перед диалогом
- */
 export async function prepareExam(category, subcategory, articleName) {
 	clearExamHistory()
 	try {
-		// 1. Загружаем текст текущей статьи
 		const response = await fetch(
 			`./articles/${encodeURIComponent(category)}/${encodeURIComponent(subcategory)}/${encodeURIComponent(articleName)}.md`,
 		)
@@ -148,7 +135,6 @@ export async function prepareExam(category, subcategory, articleName) {
 		}
 		activeArticleContent = await response.text()
 
-		// 2. Загружаем карту смежных знаний (articles_summary.json)
 		const mapResponse = await fetch('./articles_summary.json')
 		if (mapResponse.ok) {
 			const mapJson = await mapResponse.json()
@@ -164,9 +150,6 @@ export async function prepareExam(category, subcategory, articleName) {
 	}
 }
 
-/**
- * Отправка сообщения и обработка Tool Calls (вызовов функций) для RAG на клиенте
- */
 export async function sendExamMessage(userMessage = '') {
 	const apiKey = getApiKey()
 	const provider = getProvider()
@@ -176,7 +159,6 @@ export async function sendExamMessage(userMessage = '') {
 		throw new Error('Настройте провайдера и укажите API-ключ в настройках.')
 	}
 
-	// Берем выбранную пользователем модель или дефолтную для этого провайдера
 	const activeModel = getSelectedModel() || config.defaultModel
 
 	let styleRule = ''

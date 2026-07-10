@@ -9,7 +9,6 @@ async function init() {
 	initMobileMenu()
 	checkApiKeyStatus()
 
-	// Инициализация логики переключения вкладок
 	const tabButtons = document.querySelectorAll('.tab-btn')
 	const tabContents = document.querySelectorAll('.tab-content')
 
