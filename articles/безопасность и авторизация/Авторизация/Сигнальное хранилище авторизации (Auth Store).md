@@ -8,25 +8,25 @@ status: "completed"
 
 ## БЫСТРЫЙ СТАРТ
 
-*   **Сигнальное хранилище авторизации (Auth Store)** — это реактивный сервис совместного использования данных, который управляет сессией пользователя (профиль, JWT-токены, статус авторизации) во всем приложении с помощью Сигналов (`signal` и `computed`).
-*   **Единый источник правды:** Использование сигналов гарантирует, что любые изменения в профиле пользователя или его авторизационном статусе будут мгновенно и без задержек спроецированы на все зависимые компоненты, гарды и интерцепторы без необходимости ручных подписок (как в случае с RxJS `BehaviorSubject`).
-*   **Используйте:** Для декларативного хранения и изменения состояния авторизации пользователя, проверки прав доступа «на лету» и реактивного скрытия/отображения элементов интерфейса.
-*   **Не используйте:** Для долгосрочного фонового кэширования терабайтных данных или файлов (для этого применяются специализированные базы данных на клиенте, такие как IndexedDB).
+*   **Сигнальное хранилище авторизации (Auth Store)** — это реактивный сервис совместного использования данных, который централизованно управляет состоянием сессии пользователя (профилем, токенами доступа, ролевой моделью и статусом авторизации) во всем приложении с помощью Сигналов (`signal` и `computed`).
+*   **Единый источник правды:** Использование Сигналов вместо классического RxJS `BehaviorSubject` избавляет от необходимости писать ручные отписки в компонентах, гарантирует синхронное и glitch-free (без мерцания) обновление зависимых вычислений по всему реактивному графу Angular.
+*   **Используйте для:** декларативного хранения сессии пользователя в оперативной памяти, автоматической синхронизации данных профиля с локальным хранилищем браузера, проверки прав доступа «на лету» и реактивного скрытия/отображения элементов разметки.
+*   **Не используйте для:** хранения секретных JWT-токенов доступа в открытом виде внутри долгосрочного локального хранилища `LocalStorage` в промышленных проектах (это создает уязвимость перед XSS-атаками). Секретные токены должны храниться в оперативной памяти `AuthStore`, а долгоживущий `refreshToken` — в куках с флагом `HttpOnly`.
 
 ---
 
 ## ПРАКТИЧЕСКИЕ ШАБЛОНЫ ДЛЯ КОПИРОВАНИЯ
 
-### Шаблон 1: Сигнальная служба хранения сессии (AuthStore)
-*   **Назначение:** Глобальный сервис хранит состояние авторизации, предоставляет вычисляемые свойства (computed-сигналы) для UI-компонентов и инкапсулирует методы входа/выхода.
+### Шаблон 1: Сигнальная служба хранения сессии с авто-сохранением
+*   **Назначение:** Глобальный сервис хранит состояние авторизации, предоставляет вычисляемые свойства (computed-сигналы) для UI-компонентов, инкапсулирует методы входа/выхода и автоматически синхронизирует профиль с `LocalStorage` через реактивный `effect()`.
 
-#### 1. Интерфейс сессии пользователя: `auth-types.ts`
+#### 1. Файл интерфейсов: `auth-types.ts`
 ```typescript
 export interface UserProfile {
   id: string;
   name: string;
   email: string;
-  role: string;
+  role: 'admin' | 'user' | 'guest';
 }
 
 export interface AuthSession {
@@ -38,37 +38,66 @@ export interface AuthSession {
 
 #### 2. Код сервиса хранилища: `auth-store.ts`
 ```typescript
-import { Injectable, signal, computed, WritableSignal } from '@angular/core';
+import { Injectable, signal, computed, effect, WritableSignal } from '@angular/core';
 import { AuthSession, UserProfile } from './auth-types';
 
 @Injectable({
-  providedIn: 'root' // Регистрируем сервис в глобальном инжекторе как синглтон
+  providedIn: 'root' // Регистрируем сервис в глобальном инжекторе как синглтон с поддержкой Tree-Shaking
 })
 export class AuthStore {
-  // 1. Приватное реактивное состояние сессии (может быть null, если пользователь гость)
-  private readonly session: WritableSignal<AuthSession | null> = signal<AuthSession | null>(null);
+  // Ключ для хранения нечувствительных метаданных профиля в LocalStorage
+  private readonly STORAGE_KEY = 'app_user_session_meta';
 
-  // 2. Публичные сигналы чтения (ReadOnly), доступные компонентам
-  public readonly currentSession = this.session.asReadonly();
+  // 1. Приватное изменяемое сигнальное состояние сессии.
+  // Инициализируем его данными из LocalStorage, если они там присутствуют после прошлой сессии.
+  private readonly session: WritableSignal<AuthSession | null>;
 
-  // 3. Вычисляемый сигнал статуса авторизации
-  public readonly isAuthenticated = computed<boolean>(() => this.session() !== null);
+  // 2. Экспортируем сигналы чтения (ReadOnly) во внешний мир ради соблюдения инкапсуляции
+  public readonly currentSession;
+
+  // 3. Вычисляемый сигнал статуса авторизации (автоматически обновляется при изменении session)
+  public readonly isAuthenticated;
 
   // 4. Вычисляемый сигнал получения данных профиля
-  public readonly userProfile = computed<UserProfile | null>(() => {
-    const activeSession = this.session();
-    return activeSession ? activeSession.user : null;
-  });
+  public readonly userProfile;
 
-  // 5. Вычисляемый сигнал токена доступа для авто-подстановки в интерцептор
-  public readonly token = computed<string | null>(() => {
-    const activeSession = this.session();
-    return activeSession ? activeSession.accessToken : null;
-  });
+  // 5. Вычисляемый сигнал токена доступа для авто-подстановки в интерцепторы
+  public readonly token;
 
-  // Инициализация состояния (например, при старте приложения)
-  public initializeSession(savedSession: AuthSession): void {
-    this.session.set(savedSession);
+  constructor() {
+    // Пытаемся извлечь сохраненную сессию при старте приложения
+    const savedData = localStorage.getItem(this.STORAGE_KEY);
+    const initialSession = savedData ? (JSON.parse(savedData) as AuthSession) : null;
+    
+    // Инициализируем сигнал
+    this.session = signal<AuthSession | null>(initialSession);
+
+    // Настраиваем публичные сигналы чтения
+    this.currentSession = this.session.asReadonly();
+    this.isAuthenticated = computed<boolean>(() => this.session() !== null);
+    
+    this.userProfile = computed<UserProfile | null>(() => {
+      const active = this.session();
+      return active ? active.user : null;
+    });
+
+    this.token = computed<string | null>(() => {
+      const active = this.session();
+      return active ? active.accessToken : null;
+    });
+
+    // 6. Создаем реактивный эффект для автоматического сохранения состояния в LocalStorage.
+    // Эффект сработает при первой инициализации и при каждой последующей мутации сигнала session!
+    effect(() => {
+      const activeSession = this.session();
+      if (activeSession) {
+        // Сериализуем и сохраняем нечувствительные данные профиля на диск клиента
+        localStorage.setItem(this.STORAGE_KEY, JSON.stringify(activeSession));
+      } else {
+        // При логауте полностью вычищаем ключи
+        localStorage.removeItem(this.STORAGE_KEY);
+      }
+    });
   }
 
   // Метод успешного входа
@@ -96,10 +125,39 @@ export class AuthStore {
 
 ---
 
-### Шаблон 2: Компонент формы авторизации (LoginForm)
-*   **Назначение:** Компонент собирает данные учетной записи, инициирует вход через API и записывает успешную сессию в `AuthStore`.
+### Шаблон 2: Легковесный функциональный гард авторизации (`CanActivateFn`)
+*   **Назначение:** Защитник маршрутов считывает реактивный сигнал состояния из `AuthStore` и перенаправляет гостя на страницу авторизации.
 
-#### 1. Файл логики компонента: `login-form.ts`
+#### 1. Код гарда: `auth.guard.ts`
+```typescript
+import { CanActivateFn, Router } from '@angular/router';
+import { inject } from '@angular/core';
+import { AuthStore } from './auth-store';
+
+export const authGuard: CanActivateFn = (route, state) => {
+  // Внедряем зависимости через функциональный инжектор inject()
+  const authStore = inject(AuthStore);
+  const router = inject(Router);
+
+  // Считываем значение вычисляемого сигнала статуса авторизации.
+  // Это синхронная и безопасная операция.
+  if (authStore.isAuthenticated()) {
+    return true; // Разрешаем переход на защищенный роут
+  }
+
+  // Если пользователь не авторизован, декларативно перенаправляем его на страницу входа
+  return router.createUrlTree(['/login'], {
+    queryParams: { returnUrl: state.url } // Сохраняем исходный путь для редиректа после входа
+  });
+};
+```
+
+---
+
+### Шаблон 3: Компонент формы авторизации (LoginForm)
+*   **Назначение:** Компонент собирает данные учетной записи через `NonNullableFormBuilder`, имитирует отправку запроса и записывает полученную сессию в `AuthStore`.
+
+#### 1. Файл логики: `login-form.ts`
 ```typescript
 import { Component, ChangeDetectionStrategy, inject, signal } from '@angular/core';
 import { NonNullableFormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
@@ -109,20 +167,21 @@ import { AuthSession } from './auth-types';
 
 @Component({
   selector: 'app-login-form',
-  imports: [ReactiveFormsModule],
+  // standalone: true опущен по умолчанию в Angular 19+
+  imports: [ReactiveFormsModule], // Подключаем модуль форм для связи с шаблоном
   templateUrl: './login-form.html',
   styleUrl: './login-form.css',
-  changeDetection: ChangeDetectionStrategy.OnPush
+  changeDetection: ChangeDetectionStrategy.OnPush // OnPush гарантирует стабильную производительность
 })
-export class LoginForm {
+export class LoginForm { // Класс переименован по стандартам без суффикса Component
   private readonly fb = inject(NonNullableFormBuilder);
   private readonly authStore = inject(AuthStore);
   private readonly router = inject(Router);
 
-  // Сигнал для управления отображением лоадера в кнопке
+  // Реактивный сигнал для управления лоадером в кнопке
   public readonly isLoading = signal<boolean>(false);
 
-  // Инициализируем реактивную форму
+  // Инициализируем форму
   public readonly loginForm = this.fb.group({
     email: ['', [Validators.required, Validators.email]],
     password: ['', [Validators.required, Validators.minLength(6)]]
@@ -133,50 +192,52 @@ export class LoginForm {
 
     this.isLoading.set(true);
     
-    // Эмулируем POST-запрос к API авторизации
+    // Эмулируем сетевой POST-запрос к API авторизации
     setTimeout(() => {
       const mockSession: AuthSession = {
-        accessToken: 'mock-jwt-access-token',
-        refreshToken: 'mock-jwt-refresh-token',
+        accessToken: 'mock-jwt-access-token-value',
+        refreshToken: 'mock-jwt-refresh-token-value',
         user: {
-          id: 'usr-991',
+          id: 'usr-441',
           name: 'Алексей',
           email: this.loginForm.controls.email.value,
           role: 'user'
         }
       };
 
-      // Сохраняем сессию в глобальный AuthStore
+      // Сохраняем сессию в глобальный AuthStore.
+      // Это действие автоматически вызовет побочный эффект effect() записи в LocalStorage.
       this.authStore.login(mockSession);
       this.isLoading.set(false);
 
-      // Перенаправляем пользователя на главную страницу
+      // Перенаправляем пользователя в личный кабинет
       this.router.navigate(['/dashboard']);
     }, 1500);
   }
 }
 ```
 
-#### 2. Файл разметки компонента: `login-form.html`
+#### 2. Файл разметки: `login-form.html`
 ```html
 <div class="login-container">
-  <h3>Вход в систему</h3>
+  <h3>Вход в панель управления</h3>
   
   <form [formGroup]="loginForm" (ngSubmit)="onSubmit()" class="login-form">
     <label for="email">Электронная почта:</label>
-    <input id="email" type="email" formControlName="email" />
+    <input id="email" type="email" formControlName="email" class="form-input" />
 
     <label for="password">Пароль:</label>
-    <input id="password" type="password" formControlName="password" />
+    <input id="password" type="password" formControlName="password" class="form-input" />
 
-    <button type="submit" [disabled]="loginForm.invalid || isLoading()">
-      {{ isLoading() ? 'Проверка...' : 'Войти' }}
+    <!-- Блокируем кнопку на время загрузки или при невалидности полей -->
+    <button type="submit" [disabled]="loginForm.invalid || isLoading()" class="btn-submit">
+      {{ isLoading() ? 'Авторизация...' : 'Войти в систему' }}
     </button>
   </form>
 </div>
 ```
 
-#### 3. Файл стилей компонента: `login-form.css`
+#### 3. Файл стилей: `login-form.css`
 ```css
 .login-container {
   padding: 24px;
@@ -194,7 +255,7 @@ export class LoginForm {
   margin-top: 16px;
 }
 
-input {
+.form-input {
   padding: 8px 12px;
   background-color: var(--bg-primary);
   border: 1px solid var(--border);
@@ -203,7 +264,11 @@ input {
   outline: none;
 }
 
-button {
+.form-input:focus {
+  border-color: var(--accent);
+}
+
+.btn-submit {
   padding: 10px;
   background-color: var(--accent);
   color: white;
@@ -211,9 +276,10 @@ button {
   border-radius: 6px;
   cursor: pointer;
   font-weight: 500;
+  width: 100%;
 }
 
-button:disabled {
+.btn-submit:disabled {
   opacity: 0.6;
   cursor: not-allowed;
 }
@@ -221,66 +287,10 @@ button:disabled {
 
 ---
 
-### Шаблон 3: Автоматическая синхронизация сессии с LocalStorage через effect()
-*   **Назначение:** Расширение `AuthStore` для автоматического сохранения сессии в хранилище браузера при любых изменениях сигнала и её восстановления при старте приложения.
-
-#### 1. Синхронизируемая служба: `auth-persisted-store.ts`
-```typescript
-import { Injectable, signal, computed, effect, WritableSignal } from '@angular/core';
-import { AuthSession, UserProfile } from './auth-types';
-
-@Injectable({
-  providedIn: 'root'
-})
-export class AuthPersistedStore {
-  private readonly STORAGE_KEY = 'app_user_session';
-  private readonly session: WritableSignal<AuthSession | null>;
-
-  public readonly isAuthenticated;
-  public readonly userProfile;
-
-  constructor() {
-    // 1. Инициализируем сигнал данными из LocalStorage, если они там есть
-    const savedData = localStorage.getItem(this.STORAGE_KEY);
-    const initialSession = savedData ? (JSON.parse(savedData) as AuthSession) : null;
-    
-    this.session = signal<AuthSession | null>(initialSession);
-
-    // 2. Настраиваем вычисляемые свойства
-    this.isAuthenticated = computed<boolean>(() => this.session() !== null);
-    this.userProfile = computed<UserProfile | null>(() => {
-      const active = this.session();
-      return active ? active.user : null;
-    });
-
-    // 3. Создаем эффект для автоматического сохранения изменений в LocalStorage.
-    // Эффект сработает при первой инициализации и при каждой последующей мутации сигнала session!
-    effect(() => {
-      const activeSession = this.session();
-      if (activeSession) {
-        localStorage.setItem(this.STORAGE_KEY, JSON.stringify(activeSession));
-      } else {
-        localStorage.removeItem(this.STORAGE_KEY);
-      }
-    });
-  }
-
-  public login(newSession: AuthSession): void {
-    this.session.set(newSession);
-  }
-
-  public logout(): void {
-    this.session.set(null);
-  }
-}
-```
-
----
-
 ## ГЛУБОКОЕ ПОГРУЖЕНИЕ
 
-### 1. Архитектурное сравнение: Signals vs RxJS BehaviorSubject для State Management
-До появления Сигналов стандартным решением для создания сторов в Angular был паттерн на базе RxJS `BehaviorSubject`.
+### 1. Сравнение архитектурных подходов: Signals vs RxJS BehaviorSubject
+До появления Сигналов стандартным решением для создания хранилищ состояния (State Stores) в Angular являлся паттерн на базе RxJS `BehaviorSubject`.
 
 ```typescript
 // Классический RxJS Store
@@ -288,48 +298,66 @@ private session$ = new BehaviorSubject<AuthSession | null>(null);
 public isAuthenticated$ = this.session$.pipe(map(s => !!s));
 ```
 
-#### Почему Сигналы намного лучше подходят для хранения состояния авторизации?
-1.  **Отсутствие ручных отписок:**
-    RxJS-потоки требуют подписки (`.subscribe` в коде или `| async` в шаблоне) и обязательной последующей отписки. Забытая отписка от глобального сервиса в компоненте приводит к утечкам памяти. Сигналы не требуют отписок — фреймворк сам выстраивает и уничтожает зависимости в графе реактивности.
-2.  **Синхронность без задержек (Glitch-Free):**
-    В RxJS сложные комбинации операторов (`combineLatest`, `withLatestFrom`) могут приводить к кратковременным несогласованностям данных (глитчам) во время быстрой смены кадров рендеринга. Сигналы вычисляются синхронно по направленному ациклическому графу реактивности, исключая глитчи.
-3.  **Легкое прототипирование без операторов:**
-    Вместо сложной цепочки RxJS-операторов для проверки прав администратора:
+#### Почему Сигналы намного лучше подходят для управления состоянием авторизации?
+1.  **Отсутствие утечек памяти из-за ручных подписок:**
+    Потоки RxJS требуют обязательной подписки (через метод `.subscribe()` или пайп `| async` в шаблоне) и последующей отписки. Забытая отписка от глобального сервиса в компоненте приводит к утечкам памяти. Сигналы не требуют отписок — фреймворк Angular самостоятельно выстраивает и уничтожает зависимости в реактивном графе.
+2.  **Синхронность и гарантированное отсутствие глитчей (Glitch-Free):**
+    В RxJS сложные комбинации операторов (`combineLatest`, `withLatestFrom`) при быстром обновлении данных могут приводить к кратковременным логическим несогласованностям данных (глитчам). Сигналы вычисляются синхронно по направленному ациклическому графу реактивности, исключая возникновение глитчей.
+3.  **Легкое декларативное прототипирование:**
+    Вместо сложного синтаксиса операторов RxJS:
     `isAdmin$ = user$.pipe(map(u => u?.role === 'admin'))`
     Вы пишите простую декларативную функцию на Сигналах:
     `isAdmin = computed(() => this.userProfile()?.role === 'admin')`
 
-### 2. Принципы атомарности и неизменяемости (Immutability) в Сигналах
-При работе с сигнальными хранилищами критически важно соблюдать принцип иммутабельности данных. 
+---
 
-Если вы измените свойство объекта сессии напрямую, Angular не узнает об этом:
+### 2. Физика работы `effect()` и планировщик микрозадач
+В Шаблоне 1 используется реактивный эффект `effect()` для автоматического сохранения состояния сессии в `LocalStorage`:
+
 ```typescript
-// ОШИБКА: Мутация объекта напрямую
-const user = this.authStore.userProfile();
-if (user) {
-  user.name = 'Новое Имя'; // Нарушение иммутабельности! Angular не зафиксирует изменение
-}
+effect(() => {
+  const activeSession = this.session();
+  localStorage.setItem(this.STORAGE_KEY, JSON.stringify(activeSession));
+});
 ```
-*   **Почему это ломает реактивность:** Сигнал хранит ссылку на объект в куче. Если вы измените свойство внутри объекта, ссылка в сигнале останется прежней. Так как ссылка не изменилась, сигнальный граф не запустит пересчет зависимыхcomputed-сигналов и эффектов.
-*   **Правильный путь (Update с иммутабельным копированием):**
-    Всегда используйте деструктуризацию объекта (spread-оператор `...`) для создания новой ссылки при обновлении, как показано в методе `updateProfile` Шаблона 1.
 
-### 3. Детальный пошаговый разбор фазы выполнения эффекта синхронизации
-Проследим шаги работы эффекта в `AuthPersistedStore` (Шаблон 3) при входе пользователя:
+*   **Как это работает:**
+    При первом запуске Angular регистрирует зависимость эффекта от сигнала `session()`. Каждый раз, когда вы вызываете метод `session.set()`, сигнал отправляет dirty-уведомление эффекту.
+*   **Почему это происходит асинхронно:**
+    Эффект не запускается мгновенно в момент вызова `.set()`. Он упаковывается во внутреннюю микрозадачу (Microtask) и регистрируется в очереди событий браузера (Event Loop) через `Promise.resolve().then()`. Как только текущий синхронный стек вызовов JavaScript полностью очищается (происходит сборка всех изменений состояния), планировщик Angular запускает выполнение эффекта ровно один раз с итоговым стабильным состоянием данных. Это предотвращает многократную паразитную перезапись данных на диск при частых последовательных обновлениях полей профиля.
 
-1.  **Вызов login():** Компонент вызывает `this.store.login(sessionData)`.
-2.  **Обновление сигнала:** Метод `session.set()` записывает новую сессию. Ссылка на объект сессии изменяется.
-3.  **Планирование эффекта:** Angular фиксирует изменение сигнала `session`, который является зависимостью внутри зарегистрированного `effect()`. Выполнение эффекта ставится в очередь микрозадач (Microtask Queue).
-4.  **Выполнение синхронизации:** Как только стек текущих синхронных операций очищается, Angular выполняет эффект. Считывается текущее значение `this.session()`.
-5.  **Запись в LocalStorage:** Выполняется инструкция `localStorage.setItem()`, сериализуя объект сессии в JSON-строку. Данные надежно сохранены на диске клиента.
+---
+
+### 3. Детальный пошаговый разбор фазы выполнения входа и работы гарда
+Проследим шаги работы системы при отправке формы авторизации:
+
+1.  **Вызов `.login()`:** Компонент `LoginForm` вызывает метод `authStore.login(mockSession)`. Сигнал `session` обновляется новым объектом.
+2.  **Инвалидация графа:** Сигнал `session` рассылает dirty-уведомления наверх по графу. Вычисляемые сигналы `isAuthenticated`, `userProfile` и `token` помечаются как требующие пересчета.
+3.  **Запуск эффекта:** Планировщик асинхронно запускает `effect()`. Считывается текущее значение `session()`, объект сериализуется в JSON и записывается на диск в `LocalStorage`.
+4.  **Проверка перехода:** Пользователь перенаправляется на закрытый маршрут `/dashboard`. Срабатывает функциональный защитник `authGuard`.
+5.  **Разрешение доступа:** Гард вызывает `authStore.isAuthenticated()`. Метод `computed` вычисляется синхронно, возвращая `true`, так как значение сигнала `session` не равно `null`. Навигация успешно завершается, и страница отображается на экране.
 
 ---
 
 ### 4. Типичные ошибки и их решение
 
-*   **Ошибка 1: Бесконечный цикл эффектов (Infinite Effect Loop)**
-    *   *Симптомы:* Зависание вкладки браузера, переполнение стека вызовов, ошибки производительности в консоли.
-    *   *Физика процесса:* Разработчик поместил в тело эффекта чтение сигнала и одновременную запись в этот же сигнал, либо чтение другого сигнала, который косвенно влияет на первый.
+*   **Ошибка 1: Нарушение иммутабельности (прямая мутация объектов) при обновлении профиля**
+    *   *Симптомы:* Метод `updateProfile` вызывается, свойства объекта меняются, но computed-сигналы в шаблонах не обновляются, и на экране отображаются старые данные.
+    *   *Физика процесса:* Разработчик напрямую мутировал свойство объекта сессии:
+        ```typescript
+        // ОШИБКА: Изменение свойства объекта напрямую ломает реактивность
+        const current = this.session();
+        if (current) {
+          current.user.name = 'Новое Имя'; // Нарушение иммутабельности!
+          this.session.set(current); // Ссылка в памяти не изменилась
+        }
+        ```
+        Сигнал проверяет изменения по ссылочному равенству (`Object.is`). Поскольку ссылка на объект `current` осталась прежней, Angular считает, что значение сигнала не менялось, и полностью блокирует отправку dirty-уведомлений по графу зависимостей.
+    *   *Решение:* Всегда обновляйте сигнальное состояние иммутабельно, создавая новый объект через spread-оператор (`...`) для обновления ссылки в памяти (как показано в методе `updateProfile` Шаблона 1).
+
+*   **Ошибка 2: Бесконечный цикл эффектов (Infinite Effect Loop)**
+    *   *Симптомы:* Зависание вкладки браузера, переполнение стека вызовов, критическая ошибка рантайма.
+    *   *Физика процесса:* Разработчик поместил в тело эффекта чтение сигнала и одновременную запись в этот же самый сигнал, зацикливая его выполнение.
         ```typescript
         // ОШИБКА: Эффект считывает и тут же пишет в один и тот же сигнал, зацикливая себя
         effect(() => {
@@ -339,12 +367,7 @@ if (user) {
         ```
     *   *Решение:* Если вам нужно прочитать сигнал внутри эффекта без создания реактивной зависимости от него (чтобы изменение этого сигнала не запускало эффект повторно), используйте функцию `untracked()`.
 
-*   **Ошибка 2: Проблема Race Conditions при асинхронном получении профиля**
-    *   *Симптомы:* После авторизации на экране кратковременно отображаются данные старого (предыдущего) пользователя, либо приложение падает с ошибками отсутствия свойств.
-    *   *Физика процесса:* При смене учетной записи токен обновляется быстрее, чем сервер успевает вернуть новые данные профиля. Зависимые компоненты делают запросы к API с новым токеном, но получают данные, относящиеся к старому состоянию.
-    *   *Решение:* При выходе или смене сессии всегда полностью очищайте стор, сбрасывая состояние в `null`. Зависимые вычисляемые сигналы (`isAuthenticated`, `userProfile`) должны корректно обрабатывать состояние `null` и возвращать безопасные дефолтные значения (или переключать UI в режим лоадера).
-
-*   **Ошибка 3: Ошибка безопасности при хранении токенов доступа (XSS-уязвимости)**
-    *   *Симптомы:* Утечка токенов доступа пользователя при успешной XSS-атаке злоумышленника.
-    *   *Физика процесса:* Хранение чувствительных JWT-токенов в `LocalStorage` (как в Шаблоне 3) делает их легкодоступными для любого вредоносного JS-скрипта через `window.localStorage`.
-    *   *Решение:* По стандарту безопасности веб-приложений (OWASP), наиболее безопасным является хранение `accessToken` в оперативной памяти (внутри сигнального `AuthStore`), а `refreshToken` — в защищенном cookie-файле с флагами `HttpOnly` и `Secure`, недоступном для чтения из JS. `LocalStorage` можно использовать только для сохранения нечувствительных метаданных профиля (имя, аватар, роль), но не самих секретных токенов доступа.
+*   **Ошибка 3: Критическая уязвимость XSS при хранении JWT-токенов в LocalStorage**
+    *   *Симптомы:* Утечка секретных токенов доступа пользователей, несанкционированные действия злоумышленников от имени клиентов.
+    *   *Физика процесса:* Хранение чувствительных JWT-токенов в `LocalStorage` делает их легкодоступными для любого вредоносного JS-скрипта через вызов `window.localStorage` в случае успешной XSS-атаки на ваш сайт (например, через невалидированные формы ввода или уязвимые сторонние библиотеки).
+    *   *Решение:* По стандарту безопасности OWASP, наиболее безопасным является хранение короткоживущих `accessToken` исключительно в оперативной памяти (внутри сигнального `AuthStore`), а долгоживущих `refreshToken` — в защищенных куках с флагами `HttpOnly` и `Secure`, недоступных для чтения из JavaScript. В `LocalStorage` допускается сохранять только нечувствительные метаданные (имя, аватар, роль) для первой быстрой отрисовки интерфейса.

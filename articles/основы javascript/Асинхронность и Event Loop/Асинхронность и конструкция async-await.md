@@ -1,24 +1,28 @@
 ---
-tags: [js, основы-javascript, async]
+tags: [js, основы-javascript, async, error-handling]
 related: ["[[Конструирование асинхронного Promise]]", "[[Параллельное выполнение через Promise.allSettled]]", "[[Очередность выполнения задач (Event Loop)]]"]
 status: "completed"
 ---
 
-# Асинхронность async-await и обработка try-catch
+# Асинхронность и конструкция async-await
 
 ## БЫСТРЫЙ СТАРТ
 
-*   **Конструкция `async/await`** — это синтаксический сахар над промисами, позволяющий писать асинхронный код линейно, в синхронном стиле.
-*   **Ключевое слово `async`** — ставится перед функцией и гарантирует, что функция всегда возвращает `Promise`. Если вернуть обычное значение, движок неявно обернет его в `Promise.resolve()`.
-*   **Ключевое слово `await`** — приостанавливает выполнение `async`-функции до тех пор, пока промис не перейдет в состояние *settled* (выполнен или отклонен). **Не блокирует основной поток выполнения** браузера.
-*   **Обработка ошибок** — выполняется через синхронный блок `try/catch`. Любой `reject` промиса внутри блока `try` перехватывается блоком `catch` как обычное исключение.
+*   **Конструкция `async/await`** — это синтаксический сахар над промисами и генераторами, позволяющий писать последовательный асинхронный код в линейном, синхронном стиле.
+*   **Ключевое слово `async`** — ставится перед объявлением функции и гарантирует, что функция всегда вернет `Promise`. Если вернуть обычное значение, движок автоматически обернет его в `Promise.resolve()`.
+*   **Ключевое слово `await`** — приостанавливает выполнение асинхронной функции до тех пор, пока промис не перейдет в состояние *settled* (выполнен или отклонен). Не блокирует основной поток выполнения (Call Stack) браузера.
+*   **Используйте для:**
+    *   Линейного описания последовательных зависимых асинхронных шагов (когда результат шага А нужен для выполнения шага Б).
+    *   Надежной централизованной обработки ошибок с использованием классического синхронного блока `try/catch`.
+*   **Не используйте для:**
+    *   Параллельного запуска независимых асинхронных операций (последовательные вызовы `await` друг за другом создадут эффект «бутылочного горлышка» и увеличат время ожидания).
 
 ---
 
 ## ПРАКТИЧЕСКИЕ ШАБЛОНЫ ДЛЯ КОПИРОВАНИЯ
 
 ### Шаблон 1: Линейный асинхронный поток с try/catch
-*   **Назначение:** Последовательное выполнение зависимых асинхронных операций с безопасным перехватом ошибок на любом этапе.
+*   **Назначение:** Последовательное выполнение зависимых сетевых операций с безопасным перехватом и логированием ошибок на любом из этапов.
 
 ```typescript
 export interface DataPayload {
@@ -26,7 +30,7 @@ export interface DataPayload {
   statePayload: string;
 }
 
-// Имитируем асинхронный запрос к API
+// Имитируем асинхронный сетевой запрос к API
 async function fetchRemoteData(id: string): Promise<DataPayload> {
   return { identifier: id, statePayload: "active_connection" };
 }
@@ -36,7 +40,7 @@ export async function processDataPipeline(targetId: string): Promise<void> {
 
   try {
     // 1. Ожидаем выполнение асинхронной операции
-    // Выполнение функции приостанавливается, V8 переходит к другим задачам
+    // Выполнение функции приостанавливается, V8 освобождает Call Stack
     const data: DataPayload = await fetchRemoteData(targetId);
 
     // Код ниже выполнится строго после успешного завершения await
@@ -48,13 +52,13 @@ export async function processDataPipeline(targetId: string): Promise<void> {
     }
 
   } catch (error: unknown) {
-    // Блок поймает как reject промиса, так и ручной throw внутри try {}
+    // Блок catch поймает как reject промиса, так и ручной throw внутри try {}
     if (error instanceof Error) {
       console.error(`[СБОЙ ОБРАБОТКИ] Ошибка: ${error.message}`);
-      console.error(`Стек вызовов: ${error.stack}`); // Логируем системный стек вызовов
+      console.error(`Стек вызовов для отладки: ${error.stack}`); // Логируем системный стек вызовов
     }
   } finally {
-    // Выполняется в любом случае при завершении работы блока try/catch
+    // Выполняется в любом случае при завершении работы блока try/catch (очистка ресурсов)
     console.log("Сетевая транзакция завершена.");
   }
 }
@@ -70,8 +74,8 @@ export async function processDataPipeline(targetId: string): Promise<void> {
 export class NetworkStateError extends Error {
   constructor(message: string, public statusCode: number) {
     super(message);
-    this.name = "NetworkStateError"; // Переопределяем имя ошибки
-    Object.setPrototypeOf(this, new.target.prototype); // Восстанавливаем цепочку прототипов
+    this.name = "NetworkStateError"; // Переопределяем имя класса ошибки
+    Object.setPrototypeOf(this, new.target.prototype); // Восстанавливаем цепочку прототипов для корректной работы instanceof
   }
 }
 
@@ -90,7 +94,7 @@ export class ApiService {
 ---
 
 ### Шаблон 3: Оптимизированный запуск параллельных вызовов
-*   **Назначение:** Предотвращение эффекта «асинбронного бутылочного горлышка» (Sequential Bottleneck) при вызове нескольких независимых асинхронных операций.
+*   **Назначение:** Предотвращение эффекта «асинхронного бутылочного горлышка» (Sequential Bottleneck) при вызове нескольких независимых асинхронных операций.
 
 ```typescript
 export interface ConfigOptions {
@@ -107,14 +111,16 @@ async function getUserProfile(): Promise<string> {
 
 export async function loadApplicationData(): Promise<void> {
   try {
-    // ПЛОХО: await getServiceConfig(); await getUserProfile(); 
+    // ПЛОХО: 
+    // const config = await getServiceConfig(); 
+    // const profile = await getUserProfile(); 
     // Запросы пойдут последовательно, удваивая время ожидания.
 
     // ХОРОШО: Запускаем обе операции параллельно на выполнение в фоне
     const configPromise = getServiceConfig();
     const profilePromise = getUserProfile();
 
-    // Ждем выполнения запущенных процессов одновременно
+    // Ждем выполнения запущенных фоновых процессов одновременно
     const config = await configPromise;
     const profile = await profilePromise;
 
@@ -145,7 +151,7 @@ export async function loadApplicationData(): Promise<void> {
 Этот объект имеет три обязательных свойства:
 *   `name` — строковое имя класса ошибки (`Error`, `TypeError`, `ReferenceError`).
 *   `message` — текстовое описание деталей сбоя, переданное в конструктор.
-*   `stack` — (нестандартное, но поддерживаемое всеми средами свойство) строка, содержащая точную цепочку вызовов функций (Stack Trace) на момент выброса ошибки.
+*   `stack` — строка, содержащая точную цепочку вызовов функций (Stack Trace) на момент выброса ошибки.
 
 **Физика работы `throw`:**
 Оператор `throw` прерывает стандартное линейное выполнение кода. Движок V8 начинает каскадный подъем вверх по стеку вызовов, пропуская обычные строки кода, в поисках ближайшего контекста обработки `try/catch`. Если в текущем кадре стека блок `try/catch` отсутствует, кадр уничтожается, а движок переходит к родительскому кадру. Если поиск доходит до самого глобального контекста и не находит обработчик, генерируется событие `unhandledrejection` (для промисов) или `uncaughtException`, а выполнение программы может быть аварийно завершено.
@@ -156,6 +162,8 @@ export async function loadApplicationData(): Promise<void> {
 3.  **Возобновление работы:** Промис разрешается. Микрозадача продолжения запускается из очереди `Microtask Queue`. Кадр `processDataPipeline` возвращается в Call Stack, восстанавливая значения локальных переменных.
 4.  **Ручной сбой:** Выполняется проверка `data.identifier === "invalid_id"`. Условие истинно. Инструкция `throw new Error(...)` конструирует объект ошибки со стеком вызовов и инициирует прерывание выполнения.
 5.  **Перехват в `catch`:** Движок V8 видит, что сбой произошел внутри блока `try`. Выполнение кода внутри `try` немедленно прекращается, и управление передается первой строчке блока `catch(error)`. Объект ошибки записывается в переменную `error`.
+
+---
 
 ### 4. Типичные ошибки и их решение
 
@@ -168,7 +176,7 @@ export async function loadApplicationData(): Promise<void> {
 // ПЛОХО (Блок catch проигнорирует ошибку промиса)
 export async function getConfigurationUnsafe(): Promise<DataPayload> {
   try {
-    // Промис возвращается без await. Функция завершается успешно
+    // Промис возвращается без await. Функция завершается успешно, игнорируя catch при сбое
     return fetchRemoteData("invalid_id"); 
   } catch (error) {
     console.error("Этот код никогда не запустится при сбое запроса!");
@@ -195,10 +203,48 @@ export async function getConfigurationSafe(): Promise<DataPayload> {
 ```typescript
 // ПЛОХО (Строка не содержит стека вызовов, отладка невозможна)
 export function validateValueUnsafe(val: number) {
-  if (val < 0) throw "Значение ниже нуля!"; // ! Нарушение стандартов
+  if (val < 0) {
+    // @ts-ignore
+    throw "Значение ниже нуля!"; // ! Нарушение стандартов
+  }
+}
+
+// ХОРОШО (Объект Error сохраняет стек вызовов)
+export function validateValueSafe(val: number) {
+  if (val < 0) {
+    throw new Error("Значение ниже нуля!");
+  }
 }
 ```
 
 *   **Ошибка 3: Избыточная вложенность блоков `try/catch`**
     *   *Проблема:* Написание вложенных блоков `try/catch` на каждый чих внутри одной асинхронной функции. Код превращается в нечитаемую "лестницу".
     *   *Решение:* Объединяйте логически связанные асинхронные шаги под один общий блок `try/catch`. Если для конкретного шага требуется резервный результат в случае сбоя, изолируйте этот шаг во внешнюю чистую функцию со своим локальным `try/catch`.
+
+```typescript
+// ПЛОХО (Сложная вложенность, ухудшающая читаемость)
+export async function loadUserDashboardUnsafe(userId: string) {
+  try {
+    const profile = await getUserProfile();
+    try {
+      const config = await getServiceConfig();
+      console.log(profile, config);
+    } catch (configError) {
+      console.error("Ошибка конфигурации");
+    }
+  } catch (profileError) {
+    console.error("Ошибка профиля");
+  }
+}
+
+// ХОРОШО (Плоская структура с делегированием логики)
+export async function loadUserDashboardSafe(userId: string) {
+  try {
+    const profile = await getUserProfile();
+    const config = await getServiceConfig().catch(() => ({ activeUrl: "https://fallback.api.co" }));
+    console.log(profile, config);
+  } catch (error) {
+    console.error("Не удалось загрузить критические данные панели:", error);
+  }
+}
+```
