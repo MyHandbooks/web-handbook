@@ -109,15 +109,21 @@
 			"Декларативные вычисления (computed)",
 			"Динамический сброс состояния (linkedSignal)",
 			"Побочные эффекты (effect, untracked)",
-			"Асинхронные ресурсы на Сигналах (Resource API, rxResource)"
+			"Асинхронные ресурсы на Сигналах (Resource API, rxResource)",
+			"Браузерные эффекты и SSR (afterRender, afterRenderEffect)",
+			"Глобальное управление состоянием (NgRx SignalStore)"
 		],
 		"RxJS": [
 			"Введение в реактивное программирование и RxJS",
 			"Продвинутые операторы RxJS и управление потоками",
 			"Анатомия конвейера pipe и базовые операторы обработки (map, filter, tap)",
 			"Управление состоянием сервиса через BehaviorSubject",
+			"Сравнение семейства Subject (Subject, BehaviorSubject, ReplaySubject, AsyncSubject)",
+			"Порождающие операторы создания потоков (from, of, defer, timer, fromEvent, iif)",
+			"Накопление состояния во времени (scan vs reduce)",
 			"Комбинация асинхронных потоков (combineLatest, forkJoin, withLatestFrom, zip)",
 			"Управление временными задержками (debounceTime, throttleTime, auditTime, delay)",
+			"Пакетная обработка и буферизация (bufferTime, bufferCount, windowTime)",
 			"Преобразования RxJS потоков (switchMap, concatMap)",
 			"Совместное использование потоков (shareReplay)",
 			"Продвинутая обработка ошибок на потоках (catchError, retry, retryWhen)"
@@ -142,7 +148,9 @@
 			"Жизненный цикл компонента Angular",
 			"Входные свойства на Сигналах (input)",
 			"Генерация событий через Output API",
-			"Поиск дочерних элементов (viewChild)"
+			"Двустороннее связывание (model, ModelSignal)",
+			"Поиск дочерних элементов (viewChild)",
+			"Множественные сигнальные запросы (viewChildren, contentChildren, contentChild)"
 		],
 		"Проекция разметки": [
 			"Каркас с мультислотовой проекцией (ng-content)",
@@ -203,7 +211,8 @@
 	"тестирование": {
 		"Спек файлы": [
 			"Тестирование изолированного сервиса (Unit Test)",
-			"Тестирование рендеринга и кликов (Component Test)"
+			"Тестирование рендеринга и кликов (Component Test)",
+			"Мраморное тестирование потоков RxJS (Marble Testing)"
 		]
 	}
 }
