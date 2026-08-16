@@ -1,6 +1,6 @@
 ---
 tags: [angular, rxjs, пайпы, асинхронность]
-related: ["[[Кастомный чистый пайп (pure pipe).md]]", "[[Автоматическая отписка в RxJS через takeUntilDestroyed и DestroyRef.md]]"]
+related: ["[[Кастомный чистый пайп (pure pipe).md]]", "[[Автоматическая отписка в RxJS через takeUntilDestroyed and DestroyRef.md]]"]
 status: "completed"
 ---
 

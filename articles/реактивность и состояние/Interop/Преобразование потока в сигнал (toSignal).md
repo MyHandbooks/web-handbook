@@ -1,6 +1,6 @@
 ---
 tags: [angular, сигналы, RxJS, interop]
-related: ["[[Преобразование сигнала в поток (toObservable).md]]", "[[Автоматическая отписка в RxJS через takeUntilDestroyed и DestroyRef.md]]"]
+related: ["[[Преобразование сигнала в поток (toObservable).md]]", "[[Автоматическая отписка в RxJS через takeUntilDestroyed and DestroyRef.md]]"]
 status: "completed"
 ---
 
