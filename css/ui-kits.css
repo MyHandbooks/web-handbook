@@ -533,3 +533,120 @@ body.light-theme .moon-icon { display: block; }
     transform: translateY(-8px) rotate(-45deg);
   }
 }
+
+/* Сворачиваемые блоки кода */
+.code-details {
+  margin: 16px 0 24px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background-color: var(--code-bg);
+  overflow: hidden;
+  transition: border-color var(--transition-speed);
+}
+
+.code-details:hover {
+  border-color: var(--accent);
+}
+
+.code-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 16px;
+  cursor: pointer;
+  user-select: none;
+  background-color: var(--bg-secondary);
+  font-size: 0.85rem;
+  color: var(--text-normal);
+  list-style: none;
+  transition: background-color var(--transition-speed);
+}
+
+.code-summary::-webkit-details-marker {
+  display: none;
+}
+
+.code-summary:hover {
+  background-color: var(--nav-active);
+}
+
+.code-summary-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.code-lang-badge {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 4px;
+  background-color: var(--bg-primary);
+  border: 1px solid var(--border);
+  color: var(--accent);
+  text-transform: uppercase;
+}
+
+.code-summary-title {
+  font-weight: 500;
+  color: var(--text-muted);
+}
+
+/* Правый блок с текстом и стрелкой */
+.code-toggle-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+
+/* Переключение текста без переворотов */
+.code-text-expanded {
+  display: none;
+}
+
+.code-text-collapsed {
+  display: inline;
+}
+
+.code-details[open] .code-text-expanded {
+  display: inline;
+  color: var(--text-normal);
+}
+
+.code-details[open] .code-text-collapsed {
+  display: none;
+}
+
+/* Крупная векторная стрелка */
+.code-chevron {
+  display: block;
+  width: 18px;
+  height: 18px;
+  color: var(--accent);
+  transition: transform var(--transition-speed) ease;
+  flex-shrink: 0;
+}
+
+/* Поворот строго одной стрелки */
+.code-details[open] .code-chevron {
+  transform: rotate(180deg);
+}
+
+.code-details[open] .code-summary {
+  background-color: var(--nav-active);
+  border-bottom: 1px solid var(--border);
+}
+
+.code-details[open] .code-summary-title {
+  color: var(--text-normal);
+}
+
+.code-details pre {
+  margin: 0 !important;
+  border: none !important;
+  border-radius: 0 !important;
+}
